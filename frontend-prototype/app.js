@@ -1237,28 +1237,8 @@ function generateProjectNodes(project) {
 function importProject(projectId) {
   const item = state.pendingImports.find((project) => project.id === projectId);
   if (!item) return;
-  const newProject = {
-    id: `PRJ-CONTROL-${Date.now()}`,
-    no: item.id,
-    name: item.name,
-    customer: item.customer,
-    device: item.device,
-    manager: item.manager,
-    mech: "王工",
-    electric: "李工",
-    software: "陈工",
-    currentNode: "项目下单",
-    status: "notStarted",
-    delivery: item.delivery,
-    risk: "safe",
-    progress: 8,
-    version: "V1.0",
-    lastChangedAt: item.approvedAt,
-    lastChangedBy: "系统",
-    nodes: generateProjectNodes({ ...item, mech: "王工", electric: "李工", software: "陈工" }),
-    changes: ["V1.0 新项目下单审批通过生成"],
-    logs: [`${item.approvedAt} 系统从待导入项目池导入，并自动生成 11 个标准节点`],
-  };
+  const nodes = generateProjectNodes({ ...item, mech: "王工", electric: "李工", software: "陈工" });
+  const newProject = WorkflowService.createProjectFromImport(item, nodes);
   state.pendingImports = state.pendingImports.filter((project) => project.id !== projectId);
   state.controlledProjects.unshift(newProject);
   state.selectedProjectId = newProject.id;
@@ -1303,36 +1283,19 @@ function approveItem(approvalId) {
   task.node = "流程完成";
   task.auto = [...task.auto, `${flow[currentIndex]} 已通过`, "审批完成自动归档", "自动抄送相关负责人"];
   syncBusinessStatus(task, "approved");
-  state.ccRecords.unshift({
-    id: `CC-2026-${String(state.ccRecords.length + 1).padStart(3, "0")}`,
-    approvalId: task.id,
-    no: task.no,
-    title: task.title,
-    type: task.type,
-    result: "approved",
-    reason: "审批完成后自动抄送相关负责人",
-    readStatus: "unread",
-    createdAt: "2026-07-01 15:30",
-  });
+  state.ccRecords.unshift(WorkflowService.createCcRecord(task, state.ccRecords.length));
 
   if (task.type === "新项目下单" && !state.pendingImports.some((item) => item.id === task.no)) {
-    state.pendingImports.unshift({
-      id: task.no,
-      name: task.project,
-      customer: "审批通过客户",
-      device: task.project.replace("项目", "设备"),
-      manager: "王经理",
-      delivery: "2026-09-30",
-      approvedAt: "2026-07-01 14:30",
-    });
+    state.pendingImports.unshift(WorkflowService.createPendingImport(task));
   }
 
   if (task.type === "项目信息变更") {
     const project = state.controlledProjects[0];
-    project.version = project.version === "V1.1" ? "V1.2" : "V1.1";
-    project.lastChangedAt = "2026-07-01 14:30";
-    project.lastChangedBy = users[state.currentUserIndex].name;
-    project.changes.unshift(`${project.version} ${task.title}审批通过，系统自动生成变更记录`);
+    const changeResult = WorkflowService.createProjectChangeResult(task, project, users[state.currentUserIndex].name);
+    project.version = changeResult.version;
+    project.lastChangedAt = changeResult.lastChangedAt;
+    project.lastChangedBy = changeResult.lastChangedBy;
+    project.changes.unshift(changeResult.changeLog);
   }
 
   closeModal();
@@ -1405,115 +1368,25 @@ function withdrawItem(approvalId) {
 }
 
 function submitCurrentForm() {
-  const now = "2026-07-01 15:00";
-  const due = "2026-07-02 15:00";
   const route = state.route;
-  let task;
+  const project = state.controlledProjects.find((item) => item.id === state.selectedProjectId) || state.controlledProjects[0];
+  const submission = WorkflowService.createSubmission(route, {
+    approvalCount: approvalTasks.length,
+    ecnCount: ecnRecords.length,
+    projectRequestCount: projectRequests.length,
+    projectChangeCount: projectChanges.length,
+    selectedProject: project,
+    userName: users[state.currentUserIndex].name,
+  });
 
-  if (route === "ecn-form") {
-    const nextNo = `ECN-2026-${String(ecnRecords.length + 1).padStart(4, "0")}`;
-    ecnRecords.unshift({
-      id: nextNo,
-      project: "光模块耦合设备改造项目",
-      title: "结构方案局部调整",
-      type: "设计变更",
-      before: "原方案采用单侧固定结构，线缆通过空间不足。",
-      after: "改为双侧避让结构，并同步更新图纸和 BOM。",
-      reason: "现场装配空间不足，需要调整结构方案。",
-      impact: ["交期", "装配"],
-      status: "pending",
-      owner: "王工",
-      verifier: "赵工",
-      applicant: users[state.currentUserIndex].name,
-      createdAt: "2026-07-01",
-    });
-    task = {
-      id: `AP-2026-${String(approvalTasks.length + 1).padStart(3, "0")}`,
-      no: nextNo,
-      type: "ECN 变更",
-      title: "结构方案局部调整",
-      project: "光模块耦合设备改造项目",
-      applicant: users[state.currentUserIndex].name,
-      node: "研发负责人审批",
-      status: "pending",
-      startedAt: now,
-      dueAt: due,
-      ownerRole: "研发负责人",
-      auto: ["自动编号", "自动匹配 ECN 流程", "自动流转到研发负责人"],
-    };
-  }
-
-  if (route === "project-form") {
-    const nextNo = `PJ-2026-${String(projectRequests.length + 7).padStart(4, "0")}`;
-    projectRequests.unshift({
-      id: nextNo,
-      customer: "客户 F",
-      name: "视觉检测分选设备项目",
-      device: "视觉检测分选设备",
-      type: "新设备",
-      delivery: "2026-09-30",
-      manager: "王经理",
-      mech: "王工",
-      electric: "李工",
-      software: "陈工",
-      requirement: "自动上料、视觉检测、NG 分选、扫码追溯。",
-      risk: "视觉算法和样件验证需提前启动。",
-      status: "pending",
-      applicant: users[state.currentUserIndex].name,
-    });
-    task = {
-      id: `AP-2026-${String(approvalTasks.length + 1).padStart(3, "0")}`,
-      no: nextNo,
-      type: "新项目下单",
-      title: "视觉检测分选设备项目",
-      project: "视觉检测分选设备项目",
-      applicant: users[state.currentUserIndex].name,
-      node: "项目经理确认",
-      status: "pending",
-      startedAt: now,
-      dueAt: due,
-      ownerRole: "项目经理",
-      auto: ["自动生成项目编号", "自动匹配新项目下单流程", "自动流转到项目经理"],
-    };
-  }
-
-  if (route === "project-change-form") {
-    const nextNo = `PC-2026-${String(projectChanges.length + 1).padStart(4, "0")}`;
-    const project = state.controlledProjects.find((item) => item.id === state.selectedProjectId) || state.controlledProjects[0];
-    projectChanges.unshift({
-      id: nextNo,
-      project: project.name,
-      title: `${project.name} 交付计划调整`,
-      type: "交期变更",
-      before: project.delivery,
-      after: "2026-09-15",
-      reason: "客户补充功能需求，需要调整未完成节点计划。",
-      impact: ["交期", "调试"],
-      status: "pending",
-      applicant: users[state.currentUserIndex].name,
-      approver: "王经理",
-    });
-    task = {
-      id: `AP-2026-${String(approvalTasks.length + 1).padStart(3, "0")}`,
-      no: nextNo,
-      type: "项目信息变更",
-      title: `${project.name} 交付计划调整`,
-      project: project.name,
-      applicant: users[state.currentUserIndex].name,
-      node: "项目经理审批",
-      status: "pending",
-      startedAt: now,
-      dueAt: due,
-      ownerRole: "项目经理",
-      auto: ["自动生成变更编号", "自动带出项目原资料", "自动流转到项目经理"],
-    };
-  }
-
-  if (!task) {
+  if (!submission) {
     openModal("提交审批", "<p>当前页面没有可提交的审批表单。</p>");
     return;
   }
 
+  const task = submission.task;
+  const businessLists = { ecnRecords, projectRequests, projectChanges };
+  businessLists[submission.businessList].unshift(submission.businessRecord);
   approvalTasks.unshift(task);
   state.selectedApprovalId = task.id;
   addApprovalLog(`提交 ${task.no}，系统自动匹配流程并流转到“${task.node}”`);
@@ -1525,10 +1398,7 @@ function submitCurrentForm() {
 function addOperationLog(projectId) {
   const project = state.controlledProjects.find((item) => item.id === projectId);
   if (!project) return;
-  project.logs.unshift(`2026-07-01 ${users[state.currentUserIndex].name} 修改节点“机械设计”：负责人 王工 → 李工，状态 未开始 → 进行中`);
-  project.currentNode = "机械设计";
-  project.status = "running";
-  project.progress = Math.max(project.progress, 42);
+  WorkflowService.applyNodeEdit(project, users[state.currentUserIndex].name);
   saveDemoState();
   closeModal();
   openModal("节点已更新", "<p>普通进度信息已直接保存，并自动写入操作记录。</p>");
