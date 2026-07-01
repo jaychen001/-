@@ -12,11 +12,11 @@ const state = {
 };
 
 const users = [
-  { name: "张工", role: "申请人 / 研发负责人", dept: "研发部", avatar: "张" },
-  { name: "李工", role: "研发负责人", dept: "研发部", avatar: "李" },
-  { name: "王经理", role: "项目经理", dept: "项目部", avatar: "王" },
-  { name: "陈主管", role: "管理员", dept: "信息化部", avatar: "陈" },
-  { name: "周总", role: "老板 / 管理层", dept: "管理层", avatar: "周" },
+  { name: "张工", role: "申请人 / 研发负责人", roles: ["申请人", "研发负责人", "执行负责人"], dept: "研发部", avatar: "张" },
+  { name: "李工", role: "研发负责人 / 验证负责人", roles: ["研发负责人", "验证负责人"], dept: "研发部", avatar: "李" },
+  { name: "王经理", role: "项目经理", roles: ["项目经理"], dept: "项目部", avatar: "王" },
+  { name: "陈主管", role: "管理员", roles: ["管理员"], dept: "信息化部", avatar: "陈" },
+  { name: "周总", role: "老板 / 管理层", roles: ["老板 / 管理层"], dept: "管理层", avatar: "周" },
 ];
 
 const titles = {
@@ -435,6 +435,17 @@ const approvalFlows = {
   项目信息变更: ["申请人提交", "项目经理审批", "研发负责人审批", "老板 / 管理层审批", "自动更新项目资料", "自动生成变更记录", "抄送相关负责人"],
 };
 
+const stepRoleRules = [
+  ["申请人提交", "申请人"],
+  ["申请人修改", "申请人"],
+  ["研发负责人", "研发负责人"],
+  ["项目经理", "项目经理"],
+  ["执行负责人", "执行负责人"],
+  ["验证负责人", "验证负责人"],
+  ["老板", "老板 / 管理层"],
+  ["管理层", "老板 / 管理层"],
+];
+
 state.pendingImports = [...basePendingImports];
 state.controlledProjects = baseControlledProjects.map((project) => ({
   ...project,
@@ -473,6 +484,15 @@ function setChangeForm(projectId) {
 
 function getApproval(id) {
   return approvalTasks.find((item) => item.id === id) || approvalTasks[0];
+}
+
+function currentUser() {
+  return users[state.currentUserIndex];
+}
+
+function userHasRole(role) {
+  const user = currentUser();
+  return user.roles.includes("管理员") || user.roles.includes(role);
 }
 
 function loadDemoState() {
@@ -529,6 +549,23 @@ function addApprovalLog(message) {
 
 function getApprovalFlow(task) {
   return approvalFlows[task.type] || approvalFlows["ECN 变更"];
+}
+
+function getRequiredRole(task) {
+  if (["approved", "rejected", "withdrawn", "archived"].includes(task.status)) return "无";
+  const node = task.node || "";
+  const rule = stepRoleRules.find(([keyword]) => node.includes(keyword));
+  return rule ? rule[1] : task.ownerRole || "审批人";
+}
+
+function canApprove(task) {
+  if (!["pending", "overdue"].includes(task.status)) return false;
+  return userHasRole(getRequiredRole(task));
+}
+
+function isRelatedTask(task) {
+  const user = currentUser();
+  return user.roles.includes("管理员") || task.applicant === user.name || canApprove(task) || state.ccRecords.some((record) => record.approvalId === task.id);
 }
 
 function getCurrentStepIndex(task) {
@@ -620,34 +657,38 @@ function render() {
 }
 
 function renderDashboard() {
+  const visibleTasks = approvalTasks.filter(isRelatedTask);
+  const pendingForMe = approvalTasks.filter(canApprove).length;
+  const inProgress = approvalTasks.filter((task) => ["pending", "overdue", "returned"].includes(task.status)).length;
+  const overdue = approvalTasks.filter((task) => task.status === "overdue").length;
   return `
     <div class="automation-strip">
       <div><strong>自动审批能力：</strong>自动编号、自动流转、自动抄送、24 小时超时提醒、审批完成自动归档、新项目自动创建项目节点。</div>
       ${actionButton("查看流程配置", "show-auto", "ghost-btn")}
     </div>
     <div class="summary-grid seven">
-      ${metric("待我审批", "5")}
-      ${metric("审批中", "9")}
-      ${metric("已逾期", "2", "danger")}
-      ${metric("本月 ECN", "14")}
-      ${metric("本月新项目下单", "6")}
+      ${metric("待我审批", pendingForMe)}
+      ${metric("审批中", inProgress)}
+      ${metric("已逾期", overdue, overdue ? "danger" : "")}
+      ${metric("本月 ECN", ecnRecords.length)}
+      ${metric("本月新项目下单", projectRequests.length)}
       ${metric("待导入项目", state.pendingImports.length, "warning")}
-      ${metric("项目信息变更", "3")}
+      ${metric("项目信息变更", projectChanges.length)}
     </div>
     <section class="panel">
       <div class="panel-header">
         <div>
           <div class="panel-title">审批任务</div>
-          <div class="panel-subtitle">按当前角色过滤：${users[state.currentUserIndex].role}</div>
+          <div class="panel-subtitle">当前身份：${currentUser().role}；仅展示与当前用户相关的审批</div>
         </div>
         <div class="toolbar">${actionButton("刷新待办", "refresh")}${actionButton("重置演示数据", "reset-demo", "ghost-btn subtle")}${actionButton("发起审批", "start-approval", "primary-btn")}</div>
       </div>
       ${renderFilters("approval")}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>审批编号</th><th>类型</th><th>标题</th><th>关联项目</th><th>发起人</th><th>当前节点</th><th>当前状态</th><th>发起时间</th><th>截止时间</th><th>操作</th></tr></thead>
+          <thead><tr><th>审批编号</th><th>类型</th><th>标题</th><th>关联项目</th><th>发起人</th><th>当前节点</th><th>所需角色</th><th>当前状态</th><th>截止时间</th><th>操作</th></tr></thead>
           <tbody>
-            ${approvalTasks.map((task) => approvalRow(task)).join("")}
+            ${visibleTasks.map((task) => approvalRow(task)).join("") || `<tr><td colspan="10">当前身份暂无相关审批。可点击“切换身份”查看其他角色待办。</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -657,6 +698,9 @@ function renderDashboard() {
 function approvalRow(task) {
   const flow = getApprovalFlow(task);
   const currentIndex = getCurrentStepIndex(task);
+  const requiredRole = getRequiredRole(task);
+  const allowed = canApprove(task);
+  const active = task.status === "pending" || task.status === "overdue";
   return `
     <tr>
       <td>${task.no}</td>
@@ -665,12 +709,12 @@ function approvalRow(task) {
       <td>${task.project}</td>
       <td>${task.applicant}</td>
       <td>${task.node}</td>
+      <td>${requiredRole}</td>
       <td>${statusBadge(task.status)}</td>
-      <td>${task.startedAt}</td>
       <td>${task.dueAt}</td>
       <td class="button-row">
         <button class="ghost-btn" data-detail="${task.id}">查看</button>
-        ${task.status === "pending" || task.status === "overdue" ? actionButton(`审批 ${currentIndex + 1}/${flow.length}`, "approve", "primary-btn", `data-id="${task.id}"`) : actionButton("已结束", "noop", "ghost-btn subtle")}
+        ${active && allowed ? actionButton(`审批 ${currentIndex + 1}/${flow.length}`, "approve", "primary-btn", `data-id="${task.id}"`) : active ? `<button class="ghost-btn subtle" disabled title="需要 ${requiredRole} 权限">无权限</button>` : `<button class="ghost-btn subtle" disabled>已结束</button>`}
       </td>
     </tr>`;
 }
@@ -1002,6 +1046,8 @@ function renderApprovalDetail() {
   const isChange = task.type === "项目信息变更";
   const flow = getApprovalFlow(task);
   const currentIndex = getCurrentStepIndex(task);
+  const allowed = canApprove(task);
+  const active = ["pending", "overdue"].includes(task.status);
   return `
     <div class="detail-grid">
       <section class="panel">
@@ -1011,9 +1057,10 @@ function renderApprovalDetail() {
             <div class="panel-subtitle">${task.no} · ${task.type}</div>
           </div>
           <div class="button-row">
-            ${["pending", "overdue"].includes(task.status) ? actionButton("通过", "approve", "success-btn", `data-id="${task.id}"`) : ""}
-            ${["pending", "overdue"].includes(task.status) ? actionButton("驳回", "reject", "danger-btn", `data-id="${task.id}"`) : ""}
-            ${["pending", "overdue"].includes(task.status) ? actionButton("退回修改", "return-edit", "ghost-btn", `data-id="${task.id}"`) : ""}
+            ${active && allowed ? actionButton("通过", "approve", "success-btn", `data-id="${task.id}"`) : ""}
+            ${active && allowed ? actionButton("驳回", "reject", "danger-btn", `data-id="${task.id}"`) : ""}
+            ${active && allowed ? actionButton("退回修改", "return-edit", "ghost-btn", `data-id="${task.id}"`) : ""}
+            ${active && !allowed ? `<button class="ghost-btn subtle" disabled>当前身份无审批权限：需要 ${getRequiredRole(task)}</button>` : ""}
             ${actionButton("转交", "transfer")}
             ${actionButton("加签", "countersign")}
             ${actionButton("评论", "comment")}
@@ -1023,6 +1070,7 @@ function renderApprovalDetail() {
           ${info("关联项目", task.project)}
           ${info("发起人", task.applicant)}
           ${info("当前节点", task.node)}
+          ${info("所需角色", getRequiredRole(task))}
           ${info("当前状态", statusBadge(task.status))}
           ${info("发起时间", task.startedAt)}
           ${info("截止时间", task.dueAt)}
@@ -1228,6 +1276,11 @@ function approveItem(approvalId) {
     openModal("流程已结束", `<p>${task.no} 当前状态为 ${statusMap[task.status]}，不能继续审批。</p>`);
     return;
   }
+  if (!canApprove(task)) {
+    closeModal();
+    openModal("无审批权限", `<p>${task.no} 当前节点需要 ${getRequiredRole(task)}，当前身份为 ${currentUser().role}。</p>`);
+    return;
+  }
 
   const flow = getApprovalFlow(task);
   const currentIndex = getCurrentStepIndex(task);
@@ -1296,6 +1349,11 @@ function rejectItem(approvalId, reason) {
     openModal("流程已结束", `<p>${task.no} 当前状态为 ${statusMap[task.status]}，不能驳回。</p>`);
     return;
   }
+  if (!canApprove(task)) {
+    closeModal();
+    openModal("无审批权限", `<p>${task.no} 当前节点需要 ${getRequiredRole(task)}，当前身份为 ${currentUser().role}。</p>`);
+    return;
+  }
   task.status = "rejected";
   task.node = "流程终止";
   task.auto = [...task.auto, `驳回原因：${reason}`];
@@ -1312,6 +1370,11 @@ function returnForEditItem(approvalId, reason) {
   if (!["pending", "overdue"].includes(task.status)) {
     closeModal();
     openModal("流程已结束", `<p>${task.no} 当前状态为 ${statusMap[task.status]}，不能退回修改。</p>`);
+    return;
+  }
+  if (!canApprove(task)) {
+    closeModal();
+    openModal("无审批权限", `<p>${task.no} 当前节点需要 ${getRequiredRole(task)}，当前身份为 ${currentUser().role}。</p>`);
     return;
   }
   task.status = "returned";
@@ -1675,7 +1738,7 @@ function openChangeDetail(changeId) {
 function switchUser() {
   state.currentUserIndex = (state.currentUserIndex + 1) % users.length;
   render();
-  openModal("身份已切换", `<p>当前演示身份：${users[state.currentUserIndex].name}，${users[state.currentUserIndex].role}。</p>`);
+  openModal("身份已切换", `<p>当前演示身份：${currentUser().name}，${currentUser().role}。</p><p>当前待审批数量：${approvalTasks.filter(canApprove).length}</p>`);
 }
 
 document.addEventListener("click", (event) => {
