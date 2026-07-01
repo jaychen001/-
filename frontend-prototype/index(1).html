@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>工程项目自动审批与进度管控 Demo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@4.24.16/dist/antd.min.css" />
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --nav: #111827;
+        --nav-active: #1d4ed8;
+        --line: #e5e7eb;
+        --muted: #667085;
+        --title: #101828;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      }
+
+      #root,
+      .app-layout {
+        min-height: 100vh;
+      }
+
+      .app-sider {
+        position: relative;
+        background: var(--nav);
+        box-shadow: 4px 0 18px rgba(15, 23, 42, 0.18);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 74px;
+        padding: 0 18px;
+        color: #fff;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border-radius: 8px;
+        color: #12376f;
+        font-size: 18px;
+        font-weight: 800;
+        background: #dbeafe;
+      }
+
+      .brand-title {
+        font-size: 17px;
+        font-weight: 800;
+      }
+
+      .brand-subtitle,
+      .user-role {
+        margin-top: 3px;
+        color: rgba(255, 255, 255, 0.58);
+        font-size: 12px;
+      }
+
+      .app-sider .ant-menu {
+        padding-top: 8px;
+        background: transparent;
+      }
+
+      .app-sider .ant-menu-item {
+        margin: 4px 12px;
+        width: calc(100% - 24px);
+        border-radius: 8px;
+      }
+
+      .app-sider .ant-menu-item-selected {
+        background: var(--nav-active) !important;
+      }
+
+      .user-block {
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        left: 14px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 13px;
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .app-header {
+        height: auto;
+        padding: 18px 28px;
+        background: #fff;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .page-title {
+        margin: 0;
+        color: var(--title);
+        font-size: 23px;
+        font-weight: 800;
+      }
+
+      .page-subtitle {
+        margin-top: 6px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .app-content {
+        padding: 22px 28px 38px;
+      }
+
+      .metric-card {
+        border-radius: 8px;
+      }
+
+      .metric-card .ant-statistic-title {
+        color: var(--muted);
+      }
+
+      .content-card,
+      .toolbar-card {
+        border-radius: 8px;
+      }
+
+      .toolbar-card {
+        margin-bottom: 16px;
+      }
+
+      .content-card + .content-card {
+        margin-top: 16px;
+      }
+
+      .table-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .auto-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      .project-card {
+        height: 100%;
+      }
+
+      .project-card h3 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .detail-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+        gap: 16px;
+      }
+
+      .compare-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .compare-box {
+        min-height: 118px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #f8fafc;
+      }
+
+      .compare-label {
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .version-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        padding: 0 8px;
+        color: #175cd3;
+        font-weight: 700;
+        border-radius: 999px;
+        background: #eff6ff;
+      }
+
+      .drawer-section + .drawer-section {
+        margin-top: 16px;
+      }
+
+      @media (max-width: 1100px) {
+        .app-sider {
+          display: none;
+        }
+
+        .header-row,
+        .detail-grid,
+        .compare-grid {
+          display: grid;
+        }
+
+        .app-header,
+        .app-content {
+          padding-right: 16px;
+          padding-left: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/antd@4.24.16/dist/antd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js"></script>
+
+    <script type="text/babel">
+      const {
+        Layout,
+        Menu,
+        Card,
+        Row,
+        Col,
+        Statistic,
+        Button,
+        Space,
+        Table,
+        Tag,
+        Input,
+        Select,
+        DatePicker,
+        Form,
+        Radio,
+        Checkbox,
+        Upload,
+        Modal,
+        Drawer,
+        Descriptions,
+        Steps,
+        Timeline,
+        Avatar,
+        Progress,
+        Tabs,
+        Alert,
+        message,
+      } = antd;
+
+      const { Header, Sider, Content } = Layout;
+      const { Option } = Select;
+      const { Step } = Steps;
+      const { TextArea } = Input;
+
+      const pageMeta = {
+        workbench: ["审批工作台", "面向工程项目的审批任务、逾期风险、待导入项目和自动审批能力总览"],
+        mine: ["我发起的审批", "跟踪自己提交的 ECN、新项目下单、项目信息变更审批"],
+        cc: ["抄送我的审批", "查看系统自动抄送给你的审批结果和归档记录"],
+        ecn: ["ECN 变更审批", "管理图纸、BOM、物料、工艺以及客户交期影响的工程变更"],
+        projectOrder: ["新项目下单审批", "完成项目启动前的客户、负责人、技术资料和风险确认"],
+        projectProgress: ["项目进度管控", "从已审批通过的新项目中导入项目，自动生成非标自动化项目节点并跟踪执行进度"],
+        projectChange: ["项目信息变更", "用于管理项目导入后交期、负责人、技术要求等关键资料变化"],
+        flowConfig: ["审批流程配置", "维护 ECN、新项目下单、项目信息变更三类流程和自动动作"],
+        approvalDetail: ["审批详情", "查看业务内容、审批进度、审批日志并完成通过、驳回或退回"],
+        ecnForm: ["新建 ECN 变更", "补齐工程化字段，提交后自动编号、自动流转并归档抄送"],
+        projectOrderForm: ["新建项目下单", "提交并审批通过后模拟进入待导入项目池"],
+        projectChangeForm: ["发起项目信息变更", "变更交期、负责人、技术要求等资料并进入审批流程"],
+        projectChangeDetail: ["项目信息变更详情", "查看变更前后对比、影响范围、附件资料和审批流转"],
+      };
+
+      const statusMap = {
+        draft: ["草稿", "default"],
+        pending: ["审批中", "blue"],
+        approved: ["已通过", "green"],
+        rejected: ["已驳回", "red"],
+        returned: ["退回修改", "orange"],
+        withdrawn: ["已撤回", "default"],
+        overdue: ["已逾期", "red"],
+        unread: ["未读", "cyan"],
+        read: ["已读", "green"],
+        notStarted: ["未开始", "default"],
+        running: ["进行中", "blue"],
+        delayed: ["已延期", "red"],
+        warning: ["风险预警", "orange"],
+        completed: ["已完成", "green"],
+      };
+
+      const nodeTemplate = [
+        ["项目下单", 0],
+        ["方案评审", 3],
+        ["机械设计", 10],
+        ["电气设计", 15],
+        ["BOM 输出", 18],
+        ["采购下单", 20],
+        ["零件加工", 30],
+        ["装配", 40],
+        ["调试", 50],
+        ["客户验收", -5],
+        ["项目交付", 0],
+      ];
+
+      function addDays(dateText, days) {
+        return moment(dateText).add(days, "days").format("YYYY-MM-DD");
+      }
+
+      function makeNodes(project) {
+        return nodeTemplate.map(([name, offset], index) => {
+          const planned = index >= 9 ? addDays(project.deliveryDate, offset) : addDays(project.approvedAt, offset);
+          const delayed = moment(planned).isAfter(moment(project.deliveryDate));
+          return {
+            key: `${project.no}-${index}`,
+            name,
+            planDate: planned,
+            actualDate: index === 0 ? project.approvedAt : "",
+            owner: [project.manager, project.mechanicalOwner, project.electricalOwner, "采购负责人", "装配负责人"][Math.min(index, 4)] || project.manager,
+            status: index === 0 ? "completed" : index <= 2 ? "running" : "notStarted",
+            delayed,
+            remark: delayed ? "计划时间超过交付日期，系统自动风险预警" : "由标准节点模板自动生成",
+          };
+        });
+      }
+
+      const initialImportPool = [
+        {
+          key: "PJ-2026-0001",
+          no: "PJ-2026-0001",
+          name: "光学耦合设备项目",
+          customer: "客户 A",
+          device: "光学耦合设备",
+          manager: "王工",
+          mechanicalOwner: "王工",
+          electricalOwner: "陈工",
+          softwareOwner: "周工",
+          deliveryDate: "2026-08-30",
+          approvedAt: "2026-07-01",
+        },
+        {
+          key: "PJ-2026-0002",
+          no: "PJ-2026-0002",
+          name: "自动上下料设备项目",
+          customer: "客户 B",
+          device: "自动上下料设备",
+          manager: "李工",
+          mechanicalOwner: "李工",
+          electricalOwner: "赵工",
+          softwareOwner: "吴工",
+          deliveryDate: "2026-09-15",
+          approvedAt: "2026-07-02",
+        },
+        {
+          key: "PJ-2026-0003",
+          no: "PJ-2026-0003",
+          name: "光学检测设备项目",
+          customer: "客户 C",
+          device: "光学检测设备",
+          manager: "赵工",
+          mechanicalOwner: "王工",
+          electricalOwner: "刘工",
+          softwareOwner: "钱工",
+          deliveryDate: "2026-08-10",
+          approvedAt: "2026-07-01",
+        },
+      ];
+
+      const initialProjects = [
+        {
+          key: "PJ-2026-0101",
+          no: "PJ-2026-0101",
+          name: "光模块耦合设备改造项目",
+          customer: "华东客户",
+          device: "耦合改造设备",
+          manager: "王工",
+          mechanicalOwner: "王工",
+          electricalOwner: "陈工",
+          softwareOwner: "周工",
+          deliveryDate: "2026-08-20",
+          approvedAt: "2026-06-20",
+          currentNode: "机械设计",
+          status: "running",
+          risk: "正常",
+          version: "V1.2",
+          lastChangedAt: "2026-06-28 15:20",
+          progress: 36,
+        },
+        {
+          key: "PJ-2026-0102",
+          no: "PJ-2026-0102",
+          name: "XYZ 三轴平台项目",
+          customer: "深圳客户",
+          device: "三轴运动平台",
+          manager: "李工",
+          mechanicalOwner: "李工",
+          electricalOwner: "赵工",
+          softwareOwner: "吴工",
+          deliveryDate: "2026-08-05",
+          approvedAt: "2026-06-18",
+          currentNode: "采购下单",
+          status: "warning",
+          risk: "采购长周期物料风险",
+          version: "V1.1",
+          lastChangedAt: "2026-06-30 10:12",
+          progress: 52,
+        },
+        {
+          key: "PJ-2026-0103",
+          no: "PJ-2026-0103",
+          name: "自动点胶设备项目",
+          customer: "苏州客户",
+          device: "自动点胶设备",
+          manager: "赵工",
+          mechanicalOwner: "王工",
+          electricalOwner: "刘工",
+          softwareOwner: "钱工",
+          deliveryDate: "2026-07-25",
+          approvedAt: "2026-06-12",
+          currentNode: "装配",
+          status: "delayed",
+          risk: "装配延期 3 天",
+          version: "V1.3",
+          lastChangedAt: "2026-07-01 09:30",
+          progress: 68,
+        },
+      ].map((project) => ({ ...project, nodes: makeNodes(project) }));
+
+      const initialChanges = [
+        {
+          key: "PC-2026-0001",
+          no: "PC-2026-0001",
+          project: "光学耦合设备项目",
+          projectNo: "PJ-2026-0001",
+          title: "客户新增扫码追溯功能导致交期调整",
+          type: "交期变更",
+          before: "2026-08-30",
+          after: "2026-09-15",
+          reason: "客户新增扫码追溯功能",
+          applicant: "王工",
+          status: "pending",
+          impact: ["交期", "设计", "调试", "客户验收"],
+        },
+        {
+          key: "PC-2026-0002",
+          no: "PC-2026-0002",
+          project: "自动上下料设备项目",
+          projectNo: "PJ-2026-0002",
+          title: "机械负责人调整",
+          type: "负责人变更",
+          before: "机械负责人王工",
+          after: "机械负责人李工",
+          reason: "王工支援紧急项目",
+          applicant: "李工",
+          status: "approved",
+          impact: ["设计", "装配"],
+        },
+        {
+          key: "PC-2026-0003",
+          no: "PC-2026-0003",
+          project: "光学检测设备项目",
+          projectNo: "PJ-2026-0003",
+          title: "检测工位从单工位改为双工位",
+          type: "技术要求变更",
+          before: "单工位检测",
+          after: "双工位检测",
+          reason: "客户产能要求提升",
+          applicant: "赵工",
+          status: "rejected",
+          impact: ["成本", "设计", "调试"],
+        },
+      ];
+
+      const approvalRows = [
+        {
+          key: "AP-2026-1001",
+          no: "AP-2026-1001",
+          type: "ECN 变更",
+          title: "ECN-2026-0001 耦合机构安装孔位调整",
+          project: "光模块耦合设备改造项目",
+          applicant: "王工",
+          node: "研发负责人审批",
+          status: "pending",
+          startedAt: "2026-07-01 09:20",
+          deadline: "2026-07-02 09:20",
+        },
+        {
+          key: "AP-2026-1002",
+          no: "AP-2026-1002",
+          type: "新项目下单",
+          title: "PJ-2026-0002 自动上下料设备项目",
+          project: "自动上下料设备项目",
+          applicant: "李工",
+          node: "项目经理确认",
+          status: "pending",
+          startedAt: "2026-07-01 10:05",
+          deadline: "2026-07-02 10:05",
+        },
+        {
+          key: "AP-2026-1003",
+          no: "AP-2026-1003",
+          type: "项目信息变更",
+          title: "PC-2026-0001 交期变更审批",
+          project: "光学耦合设备项目",
+          applicant: "王工",
+          node: "项目经理审批",
+          status: "pending",
+          startedAt: "2026-07-01 11:30",
+          deadline: "2026-07-02 11:30",
+        },
+        {
+          key: "AP-2026-1004",
+          no: "AP-2026-1004",
+          type: "ECN 变更",
+          title: "ECN-2026-0004 采购物料替代",
+          project: "XYZ 三轴平台项目",
+          applicant: "陈工",
+          node: "执行负责人处理",
+          status: "overdue",
+          startedAt: "2026-06-29 08:40",
+          deadline: "2026-06-30 08:40",
+        },
+        {
+          key: "AP-2026-1005",
+          no: "AP-2026-1005",
+          type: "项目信息变更",
+          title: "PC-2026-0005 交期变更审批",
+          project: "自动点胶设备项目",
+          applicant: "赵工",
+          node: "管理层审批",
+          status: "overdue",
+          startedAt: "2026-06-28 14:10",
+          deadline: "2026-06-29 14:10",
+        },
+      ];
+
+      const ecnRows = [
+        {
+          key: "ECN-2026-0001",
+          no: "ECN-2026-0001",
+          project: "光模块耦合设备改造项目",
+          title: "耦合机构安装孔位调整",
+          type: "图纸",
+          before: "安装孔距 120mm，现场装配存在干涉",
+          after: "安装孔距调整为 132mm，同步更新装配图和 BOM",
+          applicant: "王工",
+          executor: "陈工",
+          verifier: "李工",
+          status: "pending",
+        },
+        {
+          key: "ECN-2026-0002",
+          no: "ECN-2026-0002",
+          project: "XYZ 三轴平台项目",
+          title: "伺服品牌替代",
+          type: "BOM",
+          before: "A 品牌 400W 伺服",
+          after: "B 品牌 400W 伺服，交期缩短 5 天",
+          applicant: "李工",
+          executor: "采购负责人",
+          verifier: "赵工",
+          status: "approved",
+        },
+        {
+          key: "ECN-2026-0003",
+          no: "ECN-2026-0003",
+          project: "自动点胶设备项目",
+          title: "点胶路径工艺优化",
+          type: "工艺",
+          before: "单路径点胶",
+          after: "双路径并行点胶",
+          applicant: "赵工",
+          executor: "周工",
+          verifier: "王工",
+          status: "returned",
+        },
+      ];
+
+      const projectOrderRows = [
+        {
+          key: "PO-2026-0001",
+          no: "PJ-2026-0001",
+          name: "光学耦合设备项目",
+          customer: "客户 A",
+          device: "光学耦合设备",
+          manager: "王工",
+          mechanicalOwner: "王工",
+          electricalOwner: "陈工",
+          softwareOwner: "周工",
+          deliveryDate: "2026-08-30",
+          status: "approved",
+        },
+        {
+          key: "PO-2026-0002",
+          no: "PJ-2026-0002",
+          name: "自动上下料设备项目",
+          customer: "客户 B",
+          device: "自动上下料设备",
+          manager: "李工",
+          mechanicalOwner: "李工",
+          electricalOwner: "赵工",
+          softwareOwner: "吴工",
+          deliveryDate: "2026-09-15",
+          status: "pending",
+        },
+        {
+          key: "PO-2026-0003",
+          no: "PJ-2026-0003",
+          name: "光学检测设备项目",
+          customer: "客户 C",
+          device: "光学检测设备",
+          manager: "赵工",
+          mechanicalOwner: "王工",
+          electricalOwner: "刘工",
+          softwareOwner: "钱工",
+          deliveryDate: "2026-08-10",
+          status: "returned",
+        },
+      ];
+
+      function StatusTag({ status }) {
+        const [label, color] = statusMap[status] || [status, "default"];
+        return <Tag color={color}>{label}</Tag>;
+      }
+
+      function AutoTags() {
+        return (
+          <div className="auto-strip">
+            {["自动编号", "自动流转", "自动抄送", "自动提醒", "自动归档", "自动生成项目节点", "自动生成变更记录", "超过 24 小时自动标记逾期"].map((item) => (
+              <Tag key={item} color="blue">{item}</Tag>
+            ))}
+          </div>
+        );
+      }
+
+      function Toolbar({ type = "approval" }) {
+        const placeholder = {
+          approval: "审批编号 / 标题 / 发起人",
+          ecn: "ECN 编号 / 关联项目 / 变更标题",
+          project: "项目编号 / 项目名称 / 客户名称",
+          change: "变更编号 / 关联项目 / 变更标题",
+        }[type];
+        return (
+          <Card className="toolbar-card" bodyStyle={{ padding: 16 }}>
+            <Form layout="inline">
+              <Form.Item><Input.Search allowClear placeholder={placeholder} style={{ width: 300 }} /></Form.Item>
+              <Form.Item>
+                <Select defaultValue="all" style={{ width: 150 }}>
+                  <Option value="all">全部状态</Option>
+                  <Option value="pending">审批中</Option>
+                  <Option value="approved">已通过</Option>
+                  <Option value="overdue">已逾期</Option>
+                  <Option value="rejected">已驳回</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item><DatePicker placeholder="开始日期" /></Form.Item>
+              <Form.Item><DatePicker placeholder="截止日期" /></Form.Item>
+              <Form.Item>
+                <Space>
+                  <Button type="primary" onClick={() => message.success("筛选条件已应用")}>查询</Button>
+                  <Button onClick={() => message.info("筛选条件已重置")}>重置</Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Card>
+        );
+      }
+
+      function MetricGrid({ items }) {
+        return (
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            {items.map((item) => (
+              <Col xs={12} md={8} xl={item.span || 4} key={item.title}>
+                <Card className="metric-card">
+                  <Statistic title={item.title} value={item.value} valueStyle={{ color: item.color || "#101828" }} />
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        );
+      }
+
+      function Workbench({ setRoute, setCurrentApproval }) {
+        const columns = [
+          { title: "审批编号", dataIndex: "no", width: 150, fixed: "left" },
+          { title: "类型", dataIndex: "type", width: 130 },
+          { title: "标题", dataIndex: "title", width: 260 },
+          { title: "关联项目", dataIndex: "project", width: 190 },
+          { title: "发起人", dataIndex: "applicant", width: 90 },
+          { title: "当前节点", dataIndex: "node", width: 150 },
+          { title: "当前状态", dataIndex: "status", width: 110, render: (v) => <StatusTag status={v} /> },
+          { title: "发起时间", dataIndex: "startedAt", width: 160 },
+          { title: "截止时间", dataIndex: "deadline", width: 160 },
+          {
+            title: "操作",
+            width: 170,
+            fixed: "right",
+            render: (_, record) => (
+              <div className="table-actions">
+                <Button size="small" onClick={() => { setCurrentApproval(record); setRoute("approvalDetail"); }}>查看</Button>
+                <Button size="small" type="primary" onClick={() => { setCurrentApproval(record); setRoute("approvalDetail"); }}>审批</Button>
+              </div>
+            ),
+          },
+        ];
+
+        return (
+          <>
+            <AutoTags />
+            <MetricGrid
+              items={[
+                { title: "待我审批", value: 5, color: "#175cd3" },
+                { title: "审批中", value: 12 },
+                { title: "已逾期", value: 2, color: "#cf1322" },
+                { title: "本月 ECN", value: 8, color: "#175cd3" },
+                { title: "本月新项目下单", value: 5, color: "#16a34a" },
+                { title: "待导入项目", value: 3, color: "#d46b08" },
+                { title: "项目信息变更", value: 4, color: "#16a34a" },
+              ]}
+            />
+            <Toolbar />
+            <Card className="content-card" title="审批任务">
+              <Table columns={columns} dataSource={approvalRows} scroll={{ x: 1580 }} pagination={{ pageSize: 5 }} />
+            </Card>
+          </>
+        );
+      }
+
+      function ApprovalDetail({ currentApproval }) {
+        const approval = currentApproval || approvalRows[0];
+        const approve = () => message.success("审批已通过：系统将自动流转、自动归档并抄送相关负责人");
+        const reject = () => {
+          Modal.confirm({
+            title: "审批驳回",
+            content: <TextArea rows={4} placeholder="驳回时必须填写原因，例如资料不完整、影响范围未说明" />,
+            okText: "确认驳回",
+            cancelText: "取消",
+            onOk: () => message.success("已驳回并记录驳回原因"),
+          });
+        };
+        const back = () => {
+          Modal.confirm({
+            title: "退回修改",
+            content: <TextArea rows={4} placeholder="请填写退回修改说明" />,
+            okText: "确认退回",
+            cancelText: "取消",
+            onOk: () => message.success("已退回申请人修改"),
+          });
+        };
+
+        return (
+          <div className="detail-grid">
+            <div>
+              <Card title="审批基础信息" className="content-card" extra={<Space><Button type="primary" onClick={approve}>通过</Button><Button danger onClick={reject}>驳回</Button><Button onClick={back}>退回</Button></Space>}>
+                <Descriptions column={2} bordered size="small">
+                  <Descriptions.Item label="审批编号">{approval.no}</Descriptions.Item>
+                  <Descriptions.Item label="当前状态"><StatusTag status={approval.status} /></Descriptions.Item>
+                  <Descriptions.Item label="类型">{approval.type}</Descriptions.Item>
+                  <Descriptions.Item label="关联项目">{approval.project}</Descriptions.Item>
+                  <Descriptions.Item label="标题" span={2}>{approval.title}</Descriptions.Item>
+                  <Descriptions.Item label="当前节点">{approval.node}</Descriptions.Item>
+                  <Descriptions.Item label="截止时间">{approval.deadline}</Descriptions.Item>
+                </Descriptions>
+              </Card>
+              <Card title="自动审批能力说明" className="content-card">
+                <Alert
+                  type="info"
+                  showIcon
+                  message="审批通过后，系统将自动更新业务状态、生成日志、自动抄送项目经理、超过 24 小时未处理自动标记逾期。"
+                />
+              </Card>
+            </div>
+            <div>
+              <Card title="审批流程时间轴" className="content-card">
+                <Steps direction="vertical" current={1}>
+                  <Step title="申请人提交" description={`${approval.applicant} / ${approval.startedAt}`} />
+                  <Step title={approval.node} description="当前待处理，系统已开启自动提醒" />
+                  <Step title="自动归档并抄送" description="通过后生成归档记录和抄送通知" />
+                </Steps>
+              </Card>
+              <Card title="操作记录" className="content-card">
+                <Timeline>
+                  <Timeline.Item>系统自动编号：{approval.no}</Timeline.Item>
+                  <Timeline.Item>系统自动流转至：{approval.node}</Timeline.Item>
+                  <Timeline.Item color={approval.status === "overdue" ? "red" : "blue"}>自动提醒：超过 24 小时未处理将标记逾期</Timeline.Item>
+                </Timeline>
+              </Card>
+            </div>
+          </div>
+        );
+      }
+
+      function SimpleApprovalList({ title, data, setRoute, setCurrentApproval }) {
+        const columns = [
+          { title: "审批编号", dataIndex: "no", width: 150 },
+          { title: "类型", dataIndex: "type", width: 130 },
+          { title: "标题", dataIndex: "title" },
+          { title: "关联项目", dataIndex: "project", width: 190 },
+          { title: "当前节点", dataIndex: "node", width: 150 },
+          { title: "状态", dataIndex: "status", width: 110, render: (v) => <StatusTag status={v} /> },
+          {
+            title: "操作",
+            width: 120,
+            render: (_, record) => <Button size="small" onClick={() => { setCurrentApproval(record); setRoute("approvalDetail"); }}>查看</Button>,
+          },
+        ];
+        return (
+          <>
+            <Toolbar />
+            <Card className="content-card" title={title}>
+              <Table columns={columns} dataSource={data} scroll={{ x: 1200 }} />
+            </Card>
+          </>
+        );
+      }
+
+      function EcnList({ setRoute, setCurrentChange }) {
+        const columns = [
+          { title: "ECN 编号", dataIndex: "no", width: 150, fixed: "left" },
+          { title: "关联项目", dataIndex: "project", width: 210 },
+          { title: "变更标题", dataIndex: "title", width: 220 },
+          { title: "变更类型", dataIndex: "type", width: 110 },
+          { title: "执行负责人", dataIndex: "executor", width: 120 },
+          { title: "验证负责人", dataIndex: "verifier", width: 120 },
+          { title: "状态", dataIndex: "status", width: 100, render: (v) => <StatusTag status={v} /> },
+          {
+            title: "操作",
+            width: 180,
+            fixed: "right",
+            render: (_, record) => (
+              <div className="table-actions">
+                <Button size="small" onClick={() => { setCurrentChange(record); setRoute("projectChangeDetail"); }}>对比</Button>
+                <Button size="small" type="primary" onClick={() => setRoute("ecnForm")}>新建</Button>
+              </div>
+            ),
+          },
+        ];
+        return (
+          <>
+            <Toolbar type="ecn" />
+            <Card className="content-card" title="ECN 变更审批" extra={<Button type="primary" onClick={() => setRoute("ecnForm")}>新建 ECN</Button>}>
+              <Table columns={columns} dataSource={ecnRows} scroll={{ x: 1280 }} />
+            </Card>
+          </>
+        );
+      }
+
+      function EcnForm({ setRoute }) {
+        return (
+          <Card className="content-card" title="ECN 工程变更表单" extra={<Button onClick={() => setRoute("ecn")}>返回列表</Button>}>
+            <Alert style={{ marginBottom: 16 }} type="info" showIcon message="ECN 编号将自动生成，例如 ECN-2026-0001；提交后自动进入 ECN 变更审批流程。" />
+            <Form layout="vertical" initialValues={{ no: "ECN-2026-0004", project: "光模块耦合设备改造项目", type: "图纸", affectPurchase: true, affectParts: false, affectDelivery: true }}>
+              <Row gutter={16}>
+                <Col xs={24} md={8}><Form.Item label="ECN 编号" name="no"><Input disabled /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="关联项目" name="project"><Select><Option value="光模块耦合设备改造项目">光模块耦合设备改造项目</Option><Option value="XYZ 三轴平台项目">XYZ 三轴平台项目</Option></Select></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="变更类型" name="type"><Select><Option value="图纸">图纸</Option><Option value="BOM">BOM</Option><Option value="物料">物料</Option><Option value="工艺">工艺</Option></Select></Form.Item></Col>
+                <Col xs={24}><Form.Item label="变更标题"><Input placeholder="例如：耦合机构安装孔位调整" /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="变更前内容"><TextArea rows={4} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="变更后内容"><TextArea rows={4} /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="是否影响已采购物料" name="affectPurchase"><Radio.Group><Radio.Button value={true}>是</Radio.Button><Radio.Button value={false}>否</Radio.Button></Radio.Group></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="是否影响已加工零件" name="affectParts"><Radio.Group><Radio.Button value={true}>是</Radio.Button><Radio.Button value={false}>否</Radio.Button></Radio.Group></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="是否影响客户交期" name="affectDelivery"><Radio.Group><Radio.Button value={true}>是</Radio.Button><Radio.Button value={false}>否</Radio.Button></Radio.Group></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="执行负责人"><Input placeholder="陈工" /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="验证负责人"><Input placeholder="李工" /></Form.Item></Col>
+                <Col xs={24}><Form.Item label="附件分类"><Checkbox.Group options={["图纸", "BOM", "截图", "客户邮件"]} /></Form.Item></Col>
+                <Col xs={24}><Form.Item label="附件上传"><Upload><Button>上传附件</Button></Upload></Form.Item></Col>
+              </Row>
+              <Space>
+                <Button onClick={() => message.success("ECN 草稿已保存")}>保存草稿</Button>
+                <Button type="primary" onClick={() => message.success("ECN 已提交，系统自动流转至研发负责人审批")}>提交审批</Button>
+              </Space>
+            </Form>
+          </Card>
+        );
+      }
+
+      function ProjectOrderList({ setRoute }) {
+        const columns = [
+          { title: "项目编号", dataIndex: "no", width: 150, fixed: "left" },
+          { title: "项目名称", dataIndex: "name", width: 210 },
+          { title: "客户名称", dataIndex: "customer", width: 120 },
+          { title: "设备名称", dataIndex: "device", width: 160 },
+          { title: "项目经理", dataIndex: "manager", width: 100 },
+          { title: "预计交付", dataIndex: "deliveryDate", width: 120 },
+          { title: "状态", dataIndex: "status", width: 100, render: (v) => <StatusTag status={v} /> },
+          { title: "操作", width: 160, fixed: "right", render: () => <Space><Button size="small">查看</Button><Button size="small" type="primary" onClick={() => setRoute("projectOrderForm")}>新建</Button></Space> },
+        ];
+        return (
+          <>
+            <Toolbar type="project" />
+            <Card className="content-card" title="新项目下单审批" extra={<Button type="primary" onClick={() => setRoute("projectOrderForm")}>新建项目下单</Button>}>
+              <Table columns={columns} dataSource={projectOrderRows} scroll={{ x: 1420 }} />
+            </Card>
+          </>
+        );
+      }
+
+      function ProjectOrderForm({ setRoute }) {
+        return (
+          <Card className="content-card" title="新项目下单表单" extra={<Button onClick={() => setRoute("projectOrder")}>返回列表</Button>}>
+            <Alert style={{ marginBottom: 16 }} type="success" showIcon message="审批通过后将自动生成项目编号，并进入待导入项目池，等待导入项目进度管控。" />
+            <Form layout="vertical" initialValues={{ no: "PJ-2026-0004", projectType: "non_standard" }}>
+              <Row gutter={16}>
+                <Col xs={24} md={8}><Form.Item label="项目编号"><Input value="PJ-2026-0004" disabled /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="项目名称"><Input /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="客户名称"><Input /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="设备名称"><Input /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="项目经理"><Input /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="机械负责人"><Input /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="电气负责人"><Input /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="软件负责人"><Input /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="预计交付日期"><DatePicker style={{ width: "100%" }} /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="项目类型"><Select defaultValue="non_standard"><Option value="standard">标准</Option><Option value="non_standard">非标</Option><Option value="sample">打样</Option></Select></Form.Item></Col>
+                <Col xs={24}><Form.Item label="客户输入资料"><TextArea rows={3} /></Form.Item></Col>
+                <Col xs={24}><Form.Item label="附件分类"><Checkbox.Group options={["技术协议", "客户图纸", "合同资料"]} /></Form.Item></Col>
+                <Col xs={24}><Form.Item label="附件上传"><Upload><Button>上传附件</Button></Upload></Form.Item></Col>
+              </Row>
+              <Space>
+                <Button onClick={() => message.success("草稿已保存")}>保存草稿</Button>
+                <Button type="primary" onClick={() => message.success("已提交审批，通过后将进入待导入项目池")}>提交审批</Button>
+              </Space>
+            </Form>
+          </Card>
+        );
+      }
+
+      function ProjectProgress({ projects, importPool, setProjects, setImportPool, setRoute, setCurrentProject }) {
+        const [importOpen, setImportOpen] = React.useState(false);
+        const importProject = (record) => {
+          const project = {
+            ...record,
+            currentNode: "项目下单",
+            status: "running",
+            risk: "节点已自动生成",
+            version: "V1.0",
+            lastChangedAt: moment().format("YYYY-MM-DD HH:mm"),
+            progress: 8,
+            nodes: makeNodes(record),
+          };
+          setProjects([project, ...projects]);
+          setImportPool(importPool.filter((item) => item.no !== record.no));
+          message.success("项目已导入，项目节点已自动生成");
+        };
+
+        const columns = [
+          { title: "项目编号", dataIndex: "no", width: 150, fixed: "left" },
+          { title: "项目名称", dataIndex: "name", width: 220 },
+          { title: "客户名称", dataIndex: "customer", width: 120 },
+          { title: "设备名称", dataIndex: "device", width: 160 },
+          { title: "项目经理", dataIndex: "manager", width: 100 },
+          { title: "当前节点", dataIndex: "currentNode", width: 130 },
+          { title: "当前状态", dataIndex: "status", width: 110, render: (v) => <StatusTag status={v} /> },
+          { title: "计划交付日期", dataIndex: "deliveryDate", width: 130 },
+          { title: "延期风险", dataIndex: "risk", width: 170 },
+          {
+            title: "操作",
+            width: 330,
+            fixed: "right",
+            render: (_, record) => (
+              <div className="table-actions">
+                <Button size="small" onClick={() => { setCurrentProject(record); }}>查看进度</Button>
+                <Button size="small" onClick={() => { setCurrentProject(record); message.info("节点编辑入口已打开，可在详情抽屉中编辑节点"); }}>编辑节点</Button>
+                <Button size="small" onClick={() => { setCurrentProject(record); setRoute("projectChangeForm"); }}>发起项目信息变更</Button>
+                <Button size="small" type="primary" onClick={() => { setCurrentProject(record); setRoute("ecnForm"); }}>发起 ECN</Button>
+              </div>
+            ),
+          },
+        ];
+
+        const importColumns = [
+          { title: "项目编号", dataIndex: "no", width: 140 },
+          { title: "项目名称", dataIndex: "name", width: 210 },
+          { title: "客户名称", dataIndex: "customer", width: 110 },
+          { title: "设备名称", dataIndex: "device", width: 150 },
+          { title: "项目经理", dataIndex: "manager", width: 100 },
+          { title: "预计交付日期", dataIndex: "deliveryDate", width: 130 },
+          { title: "审批通过时间", dataIndex: "approvedAt", width: 130 },
+          { title: "操作", width: 100, fixed: "right", render: (_, record) => <Button size="small" type="primary" onClick={() => importProject(record)}>导入</Button> },
+        ];
+
+        return (
+          <>
+            <MetricGrid
+              items={[
+                { title: "当前项目", value: projects.length, color: "#175cd3" },
+                { title: "进行中项目", value: projects.filter((p) => p.status === "running").length, color: "#175cd3" },
+                { title: "延期项目", value: projects.filter((p) => p.status === "delayed").length, color: "#cf1322" },
+                { title: "本月交付", value: 4, color: "#16a34a" },
+                { title: "待导入项目", value: importPool.length, color: "#d46b08" },
+                { title: "风险预警项目", value: projects.filter((p) => p.status === "warning").length, color: "#d46b08" },
+              ]}
+            />
+            <Card className="content-card" title="当前项目列表" extra={<Space><Button type="primary" onClick={() => setImportOpen(true)}>导入当前项目</Button><Button ghost type="primary" onClick={() => message.info("临时项目用于演示弱化入口，正式项目建议从审批结果导入")}>新建临时项目</Button></Space>}>
+              <Table columns={columns} dataSource={projects} scroll={{ x: 1640 }} pagination={{ pageSize: 5 }} />
+            </Card>
+            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+              {projects.slice(0, 3).map((project) => (
+                <Col xs={24} xl={8} key={project.no}>
+                  <Card className="project-card" onClick={() => setCurrentProject(project)} hoverable>
+                    <h3>{project.name}</h3>
+                    <div className="muted">{project.no} / {project.customer} / {project.manager}</div>
+                    <Progress percent={project.progress} status={project.status === "delayed" ? "exception" : "active"} style={{ marginTop: 12 }} />
+                    <Space style={{ marginTop: 10 }} wrap>
+                      <StatusTag status={project.status} />
+                      <Tag>{project.currentNode}</Tag>
+                      <Tag color="blue">{project.version}</Tag>
+                    </Space>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+            <Modal title="导入当前项目" width={980} open={importOpen} onCancel={() => setImportOpen(false)} footer={null}>
+              <Alert style={{ marginBottom: 12 }} type="info" showIcon message="仅展示来自新项目下单审批、审批状态为已通过、尚未导入进度管控的项目。" />
+              <Table columns={importColumns} dataSource={importPool} scroll={{ x: 1080 }} pagination={false} />
+            </Modal>
+          </>
+        );
+      }
+
+      function ProjectDrawer({ project, onClose, onNodeComplete, onNodeEdit, setRoute }) {
+        if (!project) return null;
+        const nodeColumns = [
+          { title: "节点名称", dataIndex: "name", width: 120 },
+          { title: "计划完成时间", dataIndex: "planDate", width: 130 },
+          { title: "实际完成时间", dataIndex: "actualDate", width: 130, render: (v) => v || "-" },
+          { title: "负责人", dataIndex: "owner", width: 110 },
+          { title: "当前状态", dataIndex: "status", width: 110, render: (v) => <StatusTag status={v} /> },
+          { title: "是否延期", dataIndex: "delayed", width: 100, render: (v) => v ? <Tag color="red">是</Tag> : <Tag color="green">否</Tag> },
+          { title: "备注", dataIndex: "remark", width: 240 },
+          { title: "操作", width: 150, fixed: "right", render: (_, node) => <Space><Button size="small" onClick={() => onNodeComplete(project, node)}>标记完成</Button><Button size="small" onClick={() => onNodeEdit(project, node)}>编辑</Button></Space> },
+        ];
+        return (
+          <Drawer title={`${project.name} / 项目进度详情`} width={1080} open={!!project} onClose={onClose}>
+            <div className="drawer-section">
+              <Space wrap>
+                <Button onClick={() => onNodeEdit(project, project.nodes[1])}>编辑节点</Button>
+                <Button onClick={() => setRoute("projectChangeForm")}>发起项目信息变更</Button>
+                <Button type="primary" onClick={() => setRoute("ecnForm")}>发起 ECN 变更</Button>
+                <Button onClick={() => message.info("变更记录已在下方展示")}>查看变更记录</Button>
+              </Space>
+            </div>
+            <div className="drawer-section">
+              <Descriptions bordered column={3} size="small">
+                <Descriptions.Item label="项目编号">{project.no}</Descriptions.Item>
+                <Descriptions.Item label="客户名称">{project.customer}</Descriptions.Item>
+                <Descriptions.Item label="设备名称">{project.device}</Descriptions.Item>
+                <Descriptions.Item label="项目经理">{project.manager}</Descriptions.Item>
+                <Descriptions.Item label="机械负责人">{project.mechanicalOwner}</Descriptions.Item>
+                <Descriptions.Item label="电气负责人">{project.electricalOwner}</Descriptions.Item>
+                <Descriptions.Item label="软件负责人">{project.softwareOwner}</Descriptions.Item>
+                <Descriptions.Item label="当前版本"><span className="version-badge">{project.version}</span></Descriptions.Item>
+                <Descriptions.Item label="最近变更时间">{project.lastChangedAt}</Descriptions.Item>
+              </Descriptions>
+            </div>
+            <div className="drawer-section">
+              <Card title="整体进度与节点时间轴">
+                <Progress percent={project.progress} status={project.status === "delayed" ? "exception" : "active"} />
+                <Steps size="small" current={Math.max(0, project.nodes.findIndex((n) => n.status !== "completed"))} style={{ marginTop: 20 }}>
+                  {project.nodes.map((node) => <Step key={node.key} title={node.name} description={node.planDate} />)}
+                </Steps>
+              </Card>
+            </div>
+            <div className="drawer-section">
+              <Card title="项目节点表格">
+                <Table columns={nodeColumns} dataSource={project.nodes} scroll={{ x: 1180 }} pagination={false} />
+              </Card>
+            </div>
+            <div className="drawer-section">
+              <Card title="变更记录与操作记录">
+                <Timeline>
+                  <Timeline.Item>系统自动生成项目节点：非标自动化项目标准节点模板</Timeline.Item>
+                  <Timeline.Item>最近变更：{project.lastChangedAt}，项目版本递增至 {project.version}</Timeline.Item>
+                  <Timeline.Item>节点编辑将自动生成操作记录并通知项目经理</Timeline.Item>
+                </Timeline>
+              </Card>
+            </div>
+          </Drawer>
+        );
+      }
+
+      function ProjectChangeList({ changes, setRoute, setCurrentChange }) {
+        const columns = [
+          { title: "变更编号", dataIndex: "no", width: 150, fixed: "left" },
+          { title: "关联项目", dataIndex: "project", width: 190 },
+          { title: "变更标题", dataIndex: "title", width: 260 },
+          { title: "变更类型", dataIndex: "type", width: 130 },
+          { title: "变更前", dataIndex: "before", width: 190 },
+          { title: "变更后", dataIndex: "after", width: 190 },
+          { title: "变更原因", dataIndex: "reason", width: 220 },
+          { title: "申请人", dataIndex: "applicant", width: 90 },
+          { title: "当前状态", dataIndex: "status", width: 110, render: (v) => <StatusTag status={v} /> },
+          { title: "操作", width: 160, fixed: "right", render: (_, record) => <Space><Button size="small" onClick={() => { setCurrentChange(record); setRoute("projectChangeDetail"); }}>查看</Button><Button size="small" type="primary" onClick={() => setRoute("projectChangeForm")}>新建</Button></Space> },
+        ];
+        return (
+          <>
+            <Toolbar type="change" />
+            <Card className="content-card" title="项目信息变更记录" extra={<Button type="primary" onClick={() => setRoute("projectChangeForm")}>发起项目信息变更</Button>}>
+              <Table columns={columns} dataSource={changes} scroll={{ x: 1720 }} />
+            </Card>
+          </>
+        );
+      }
+
+      function ProjectChangeForm({ setRoute }) {
+        return (
+          <Card className="content-card" title="项目信息变更表单" extra={<Button onClick={() => setRoute("projectChange")}>返回列表</Button>}>
+            <Alert style={{ marginBottom: 16 }} type="info" showIcon message="变更编号自动生成，例如 PC-2026-0004；提交后进入审批中，并显示审批流程时间轴。" />
+            <Form layout="vertical" initialValues={{ no: "PC-2026-0004", type: "交期变更", recalc: true, notify: true }}>
+              <Row gutter={16}>
+                <Col xs={24} md={8}><Form.Item label="变更编号"><Input value="PC-2026-0004" disabled /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="关联项目"><Select defaultValue="PJ-2026-0001"><Option value="PJ-2026-0001">光学耦合设备项目</Option><Option value="PJ-2026-0002">自动上下料设备项目</Option></Select></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="变更类型" name="type"><Select><Option value="交期变更">交期变更</Option><Option value="技术要求变更">技术要求变更</Option><Option value="项目范围变更">项目范围变更</Option><Option value="负责人变更">负责人变更</Option><Option value="客户资料变更">客户资料变更</Option><Option value="其他">其他</Option></Select></Form.Item></Col>
+                <Col xs={24}><Form.Item label="变更标题"><Input /></Form.Item></Col>
+                <Col xs={24}><Form.Item label="变更原因"><TextArea rows={3} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="变更前内容"><TextArea rows={4} placeholder="系统自动带出项目当前资料" /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="变更后内容"><TextArea rows={4} placeholder="请填写变更后的资料" /></Form.Item></Col>
+                <Col xs={24}><Form.Item label="影响范围"><Checkbox.Group options={["成本", "交期", "采购", "设计", "装配", "调试", "客户验收"]} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="是否需要重新计算项目节点" name="recalc"><Radio.Group><Radio.Button value={true}>是</Radio.Button><Radio.Button value={false}>否</Radio.Button></Radio.Group></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item label="是否需要通知相关负责人" name="notify"><Radio.Group><Radio.Button value={true}>是</Radio.Button><Radio.Button value={false}>否</Radio.Button></Radio.Group></Form.Item></Col>
+                <Col xs={24}><Form.Item label="附件分类"><Checkbox.Group options={["客户邮件", "技术协议", "会议纪要"]} /></Form.Item></Col>
+                <Col xs={24}><Form.Item label="附件上传"><Upload><Button>上传附件</Button></Upload></Form.Item></Col>
+                <Col xs={24}><Form.Item label="备注"><TextArea rows={3} /></Form.Item></Col>
+              </Row>
+              <Space>
+                <Button onClick={() => message.success("变更草稿已保存")}>保存草稿</Button>
+                <Button type="primary" onClick={() => message.success("项目信息变更已提交，当前状态：审批中")}>提交审批</Button>
+              </Space>
+              <Card style={{ marginTop: 16 }} title="提交后审批流程预览">
+                <Steps current={1}>
+                  <Step title="申请人提交" />
+                  <Step title="项目经理审批" />
+                  <Step title="研发负责人审批" />
+                  <Step title="管理层审批" />
+                  <Step title="自动更新资料并抄送" />
+                </Steps>
+              </Card>
+            </Form>
+          </Card>
+        );
+      }
+
+      function ProjectChangeDetail({ change }) {
+        const item = change || initialChanges[0];
+        return (
+          <div className="detail-grid">
+            <div>
+              <Card className="content-card" title="变更基本信息">
+                <Descriptions column={2} bordered size="small">
+                  <Descriptions.Item label="变更编号">{item.no}</Descriptions.Item>
+                  <Descriptions.Item label="当前状态"><StatusTag status={item.status} /></Descriptions.Item>
+                  <Descriptions.Item label="关联项目">{item.project}</Descriptions.Item>
+                  <Descriptions.Item label="变更类型">{item.type}</Descriptions.Item>
+                  <Descriptions.Item label="变更标题" span={2}>{item.title}</Descriptions.Item>
+                  <Descriptions.Item label="变更原因" span={2}>{item.reason}</Descriptions.Item>
+                </Descriptions>
+              </Card>
+              <Card className="content-card" title="变更前 / 变更后对比">
+                <div className="compare-grid">
+                  <div className="compare-box"><div className="compare-label">变更前</div>{item.before}</div>
+                  <div className="compare-box"><div className="compare-label">变更后</div>{item.after}</div>
+                </div>
+                <Space wrap style={{ marginTop: 14 }}>
+                  {(item.impact || ["图纸", "BOM", "客户交期"]).map((tag) => <Tag key={tag} color="blue">{tag}</Tag>)}
+                </Space>
+              </Card>
+              <Card className="content-card" title="审批通过后模拟自动执行">
+                <Timeline>
+                  <Timeline.Item>自动更新项目资料</Timeline.Item>
+                  <Timeline.Item>项目版本号递增</Timeline.Item>
+                  <Timeline.Item>自动生成变更记录</Timeline.Item>
+                  <Timeline.Item>自动抄送项目经理和相关负责人</Timeline.Item>
+                </Timeline>
+              </Card>
+            </div>
+            <div>
+              <Card className="content-card" title="审批流程时间轴">
+                <Steps direction="vertical" current={item.status === "approved" ? 4 : 1}>
+                  <Step title="申请人提交" description={item.applicant} />
+                  <Step title="项目经理审批" description="当前节点或已完成" />
+                  <Step title="研发负责人审批" />
+                  <Step title="管理层审批" />
+                  <Step title="自动更新资料并归档" />
+                </Steps>
+              </Card>
+              <Card className="content-card" title="审批操作">
+                <Space wrap>
+                  <Button type="primary" onClick={() => message.success("审批通过，项目资料已模拟更新")}>通过</Button>
+                  <Button danger onClick={() => message.warning("驳回时必须填写原因")}>驳回</Button>
+                  <Button onClick={() => message.info("已退回申请人补充资料")}>退回</Button>
+                </Space>
+              </Card>
+            </div>
+          </div>
+        );
+      }
+
+      function FlowConfig() {
+        const data = [
+          {
+            key: 1,
+            name: "ECN 变更审批流程",
+            type: "ECN_APPROVAL",
+            nodes: "申请人提交 → 研发负责人审批 → 项目经理确认影响 → 执行负责人处理 → 验证负责人确认 → 自动归档并抄送项目经理",
+            roles: "研发负责人 / 项目经理 / 执行负责人 / 验证负责人",
+            timeout: "24 小时",
+            cc: "项目经理、申请人、执行负责人",
+            action: "自动归档、自动抄送、生成 ECN 记录",
+          },
+          {
+            key: 2,
+            name: "新项目下单审批流程",
+            type: "PROJECT_ORDER_APPROVAL",
+            nodes: "申请人提交 → 项目经理确认 → 研发负责人确认资源 → 老板/管理层审批 → 自动生成项目编号 → 进入待导入项目池",
+            roles: "项目经理 / 研发负责人 / 管理层",
+            timeout: "24 小时",
+            cc: "机械、电气、软件负责人",
+            action: "自动生成项目编号、进入待导入项目池、抄送负责人",
+          },
+          {
+            key: 3,
+            name: "项目信息变更审批流程",
+            type: "PROJECT_CHANGE_APPROVAL",
+            nodes: "申请人提交 → 项目经理审批 → 研发负责人审批 → 老板/管理层审批 → 自动更新项目资料 → 自动生成变更记录",
+            roles: "项目经理 / 研发负责人 / 管理层",
+            timeout: "24 小时",
+            cc: "项目经理、相关节点负责人",
+            action: "自动更新项目资料、版本递增、生成变更记录、自动抄送",
+          },
+        ];
+        const columns = [
+          { title: "流程名称", dataIndex: "name", width: 210, fixed: "left" },
+          { title: "适用类型", dataIndex: "type", width: 210 },
+          { title: "审批节点", dataIndex: "nodes", width: 480 },
+          { title: "审批角色", dataIndex: "roles", width: 260 },
+          { title: "是否启用", width: 90, render: () => <Tag color="green">启用</Tag> },
+          { title: "超时提醒时间", dataIndex: "timeout", width: 130 },
+          { title: "自动抄送对象", dataIndex: "cc", width: 230 },
+          { title: "自动动作", dataIndex: "action", width: 300 },
+          { title: "操作", width: 90, fixed: "right", render: () => <Button size="small">编辑</Button> },
+        ];
+        return (
+          <>
+            <AutoTags />
+            <Card className="content-card" title="审批流程配置">
+              <Table columns={columns} dataSource={data} scroll={{ x: 2200 }} pagination={false} />
+            </Card>
+          </>
+        );
+      }
+
+      function App() {
+        const [route, setRoute] = React.useState("workbench");
+        const [projects, setProjects] = React.useState(initialProjects);
+        const [importPool, setImportPool] = React.useState(initialImportPool);
+        const [changes, setChanges] = React.useState(initialChanges);
+        const [currentApproval, setCurrentApproval] = React.useState(approvalRows[0]);
+        const [currentProject, setCurrentProject] = React.useState(null);
+        const [currentChange, setCurrentChange] = React.useState(initialChanges[0]);
+        const [nodeModal, setNodeModal] = React.useState(null);
+        const meta = pageMeta[route] || pageMeta.workbench;
+
+        const selectedKey = {
+          ecnForm: "ecn",
+          projectOrderForm: "projectOrder",
+          projectChangeForm: "projectChange",
+          projectChangeDetail: "projectChange",
+          approvalDetail: "workbench",
+        }[route] || route;
+
+        const menuItems = [
+          { key: "workbench", label: "审批工作台" },
+          { key: "mine", label: "我发起的审批" },
+          { key: "cc", label: "抄送我的审批" },
+          { key: "ecn", label: "ECN 变更审批" },
+          { key: "projectOrder", label: "新项目下单审批" },
+          { key: "projectProgress", label: "项目进度管控" },
+          { key: "projectChange", label: "项目信息变更" },
+          { key: "flowConfig", label: "审批流程配置" },
+        ];
+
+        const updateProject = (updatedProject) => {
+          setProjects(projects.map((item) => item.no === updatedProject.no ? updatedProject : item));
+          setCurrentProject(updatedProject);
+        };
+
+        const markNodeComplete = (project, node) => {
+          const updated = {
+            ...project,
+            progress: Math.min(100, project.progress + 8),
+            lastChangedAt: moment().format("YYYY-MM-DD HH:mm"),
+            nodes: project.nodes.map((item) => item.key === node.key ? { ...item, status: "completed", actualDate: moment().format("YYYY-MM-DD"), remark: "节点已完成，系统自动生成操作记录" } : item),
+          };
+          updateProject(updated);
+          message.success("节点已标记完成，并生成操作记录");
+        };
+
+        const editNode = (project, node) => {
+          setNodeModal({ project, node });
+        };
+
+        const saveNodeEdit = () => {
+          if (!nodeModal) return;
+          const { project, node } = nodeModal;
+          const updated = {
+            ...project,
+            lastChangedAt: moment().format("YYYY-MM-DD HH:mm"),
+            nodes: project.nodes.map((item) => item.key === node.key ? { ...item, remark: "节点已编辑，系统自动生成操作记录并通知负责人" } : item),
+          };
+          updateProject(updated);
+          setNodeModal(null);
+          message.success("节点已编辑，并生成操作记录");
+        };
+
+        const renderPage = () => {
+          if (route === "workbench") return <Workbench setRoute={setRoute} setCurrentApproval={setCurrentApproval} />;
+          if (route === "mine") return <SimpleApprovalList title="我发起的审批" data={approvalRows.slice(1)} setRoute={setRoute} setCurrentApproval={setCurrentApproval} />;
+          if (route === "cc") return <SimpleApprovalList title="抄送我的审批" data={approvalRows.filter((item) => item.status !== "pending")} setRoute={setRoute} setCurrentApproval={setCurrentApproval} />;
+          if (route === "ecn") return <EcnList setRoute={setRoute} setCurrentChange={setCurrentChange} />;
+          if (route === "ecnForm") return <EcnForm setRoute={setRoute} />;
+          if (route === "projectOrder") return <ProjectOrderList setRoute={setRoute} />;
+          if (route === "projectOrderForm") return <ProjectOrderForm setRoute={setRoute} />;
+          if (route === "projectProgress") return <ProjectProgress projects={projects} importPool={importPool} setProjects={setProjects} setImportPool={setImportPool} setRoute={setRoute} setCurrentProject={setCurrentProject} />;
+          if (route === "projectChange") return <ProjectChangeList changes={changes} setRoute={setRoute} setCurrentChange={setCurrentChange} />;
+          if (route === "projectChangeForm") return <ProjectChangeForm setRoute={setRoute} />;
+          if (route === "projectChangeDetail") return <ProjectChangeDetail change={currentChange} />;
+          if (route === "flowConfig") return <FlowConfig />;
+          if (route === "approvalDetail") return <ApprovalDetail currentApproval={currentApproval} />;
+          return <Workbench setRoute={setRoute} setCurrentApproval={setCurrentApproval} />;
+        };
+
+        return (
+          <Layout className="app-layout">
+            <Sider width={260} className="app-sider">
+              <div className="brand">
+                <div className="brand-mark">审</div>
+                <div>
+                  <div className="brand-title">工程审批管控</div>
+                  <div className="brand-subtitle">审批 / 进度 / 变更闭环</div>
+                </div>
+              </div>
+              <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={menuItems} onClick={({ key }) => setRoute(key)} />
+              <div className="user-block">
+                <Avatar style={{ background: "#dbeafe", color: "#17325f" }}>张</Avatar>
+                <div>
+                  <div>张三</div>
+                  <div className="user-role">项目成员 / 审批人</div>
+                </div>
+              </div>
+            </Sider>
+            <Layout>
+              <Header className="app-header">
+                <div className="header-row">
+                  <div>
+                    <h1 className="page-title">{meta[0]}</h1>
+                    <div className="page-subtitle">{meta[1]}</div>
+                  </div>
+                  <Space wrap>
+                    <Button onClick={() => message.info("已切换演示身份：项目经理")}>切换身份</Button>
+                    <Button type="primary" onClick={() => setRoute("ecnForm")}>新建 ECN</Button>
+                    <Button type="primary" ghost onClick={() => setRoute("projectOrderForm")}>新建项目下单</Button>
+                    <Button onClick={() => setRoute("projectChangeForm")}>发起项目变更</Button>
+                  </Space>
+                </div>
+              </Header>
+              <Content className="app-content">{renderPage()}</Content>
+            </Layout>
+            <ProjectDrawer
+              project={currentProject}
+              onClose={() => setCurrentProject(null)}
+              onNodeComplete={markNodeComplete}
+              onNodeEdit={editNode}
+              setRoute={setRoute}
+            />
+            <Modal title="编辑项目节点" open={!!nodeModal} onCancel={() => setNodeModal(null)} onOk={saveNodeEdit} okText="保存并生成记录" cancelText="取消">
+              {nodeModal && (
+                <Form layout="vertical">
+                  <Form.Item label="节点名称"><Input defaultValue={nodeModal.node.name} /></Form.Item>
+                  <Form.Item label="计划完成时间"><DatePicker style={{ width: "100%" }} defaultValue={moment(nodeModal.node.planDate)} /></Form.Item>
+                  <Form.Item label="负责人"><Input defaultValue={nodeModal.node.owner} /></Form.Item>
+                  <Form.Item label="备注"><TextArea rows={3} defaultValue={nodeModal.node.remark} /></Form.Item>
+                </Form>
+              )}
+            </Modal>
+          </Layout>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>

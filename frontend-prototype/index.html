@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>工程项目自动审批与进度管控 Demo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">审</div>
+          <div>
+            <div class="brand-title">工程审批系统</div>
+            <div class="brand-subtitle">非标自动化项目管控</div>
+          </div>
+        </div>
+
+        <nav class="nav-group" aria-label="主导航">
+          <button class="nav-item active" data-route="dashboard">审批工作台</button>
+          <button class="nav-item" data-route="mine">我发起的</button>
+          <button class="nav-item" data-route="cc">抄送我的</button>
+          <button class="nav-item" data-route="ecn-list">ECN 变更审批</button>
+          <button class="nav-item" data-route="project-list">新项目下单审批</button>
+          <button class="nav-item" data-route="project-progress">项目进度管控</button>
+          <button class="nav-item" data-route="project-change">项目信息变更</button>
+          <button class="nav-item" data-route="templates">审批流程配置</button>
+        </nav>
+
+        <div class="sidebar-user">
+          <div class="avatar">张</div>
+          <div>
+            <div class="user-name" id="current-user-name">当前用户：张工</div>
+            <div class="user-role" id="current-user-role">当前角色：申请人 / 研发负责人</div>
+            <div class="user-role" id="current-user-dept">所属部门：研发部</div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="page-title">审批工作台</h1>
+            <p id="page-subtitle">工程变更、新项目下单和项目资料变更统一流转</p>
+          </div>
+          <div class="top-actions">
+            <button class="primary-btn" data-action="start-approval">发起审批</button>
+            <button class="ghost-btn" data-route="ecn-form">发起 ECN 变更</button>
+            <button class="ghost-btn" data-route="project-form">发起新项目下单</button>
+            <button class="ghost-btn subtle" data-action="switch-user">切换身份</button>
+          </div>
+        </header>
+
+        <section id="view-root" class="view-root"></section>
+      </main>
+    </div>
+
+    <div id="modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="modal-title">操作确认</h2>
+          <button class="icon-btn" data-action="close-modal" aria-label="关闭">×</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+        <div class="modal-footer">
+          <button class="ghost-btn" data-action="close-modal">取消</button>
+          <button class="primary-btn" data-action="close-modal">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
