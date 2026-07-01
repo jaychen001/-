@@ -1237,6 +1237,7 @@ function generateProjectNodes(project) {
 function importProject(projectId) {
   const item = state.pendingImports.find((project) => project.id === projectId);
   if (!item) return;
+  ApprovalApi.importProject(projectId);
   const nodes = generateProjectNodes({ ...item, mech: "王工", electric: "李工", software: "陈工" });
   const newProject = WorkflowService.createProjectFromImport(item, nodes);
   state.pendingImports = state.pendingImports.filter((project) => project.id !== projectId);
@@ -1267,6 +1268,7 @@ function approveItem(approvalId) {
   const nextIndex = getNextManualStepIndex(task);
 
   if (nextIndex < flow.length - 1) {
+    ApprovalApi.approveApproval(task.id);
     task.status = "pending";
     task.node = flow[nextIndex];
     task.auto = [...task.auto, `${flow[currentIndex]} 已通过，自动流转到 ${flow[nextIndex]}`];
@@ -1279,6 +1281,7 @@ function approveItem(approvalId) {
     return;
   }
 
+  ApprovalApi.approveApproval(task.id);
   task.status = "approved";
   task.node = "流程完成";
   task.auto = [...task.auto, `${flow[currentIndex]} 已通过`, "审批完成自动归档", "自动抄送相关负责人"];
@@ -1317,6 +1320,7 @@ function rejectItem(approvalId, reason) {
     openModal("无审批权限", `<p>${task.no} 当前节点需要 ${getRequiredRole(task)}，当前身份为 ${currentUser().role}。</p>`);
     return;
   }
+  ApprovalApi.rejectApproval(task.id, reason);
   task.status = "rejected";
   task.node = "流程终止";
   task.auto = [...task.auto, `驳回原因：${reason}`];
@@ -1340,6 +1344,7 @@ function returnForEditItem(approvalId, reason) {
     openModal("无审批权限", `<p>${task.no} 当前节点需要 ${getRequiredRole(task)}，当前身份为 ${currentUser().role}。</p>`);
     return;
   }
+  ApprovalApi.returnApproval(task.id, reason);
   task.status = "returned";
   task.node = "申请人修改";
   task.auto = [...task.auto, `退回修改原因：${reason}`];
@@ -1357,6 +1362,7 @@ function withdrawItem(approvalId) {
     openModal("无法撤回", `<p>${task.no} 当前状态为 ${statusMap[task.status]}，不能撤回。</p>`);
     return;
   }
+  ApprovalApi.withdrawApproval(task.id);
   task.status = "withdrawn";
   task.node = "申请人撤回";
   task.auto = [...task.auto, "申请人主动撤回，流程终止"];
@@ -1386,6 +1392,11 @@ function submitCurrentForm() {
 
   const task = submission.task;
   const businessLists = { ecnRecords, projectRequests, projectChanges };
+  if (submission.businessList !== "projectChanges") {
+    ApprovalApi.createBusinessRequest(submission.businessList, submission.businessRecord);
+    ApprovalApi.submitBusinessRequest(task);
+  }
+  ApprovalApi.submitApproval(task);
   businessLists[submission.businessList].unshift(submission.businessRecord);
   approvalTasks.unshift(task);
   state.selectedApprovalId = task.id;
@@ -1398,6 +1409,7 @@ function submitCurrentForm() {
 function addOperationLog(projectId) {
   const project = state.controlledProjects.find((item) => item.id === projectId);
   if (!project) return;
+  ApprovalApi.updateProjectNode(projectId, "机械设计");
   WorkflowService.applyNodeEdit(project, users[state.currentUserIndex].name);
   saveDemoState();
   closeModal();
@@ -1529,6 +1541,9 @@ function openCommentModal() {
 
 function markAllCcRead() {
   state.ccRecords.forEach((record) => {
+    if (record.readStatus !== "read") {
+      ApprovalApi.markCcRead(record.id);
+    }
     record.readStatus = "read";
   });
   saveDemoState();
