@@ -471,6 +471,11 @@ tr:hover td {
   background: #ffe1df;
 }
 
+.status.withdrawn {
+  color: #5f4b32;
+  background: #efe5d8;
+}
+
 .status.draft {
   color: #44546a;
   background: #e8edf3;
@@ -575,6 +580,10 @@ tr:hover td {
 
 .step.now .step-dot {
   background: var(--primary);
+}
+
+.step.risk .step-dot {
+  background: var(--red);
 }
 
 .step-title {

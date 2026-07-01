@@ -7,6 +7,8 @@ const state = {
   pendingActionApprovalId: null,
   pendingImports: [],
   controlledProjects: [],
+  ccRecords: [],
+  approvalLogs: [],
 };
 
 const users = [
@@ -50,6 +52,8 @@ const statusMap = {
   warning: "风险预警",
   completed: "已完成",
 };
+
+const STORAGE_KEY = "engineeringApprovalDemoState";
 
 const approvalTasks = [
   {
@@ -394,6 +398,37 @@ const templateNodes = [
   },
 ];
 
+const baseCcRecords = [
+  {
+    id: "CC-2026-001",
+    approvalId: "AP-2026-005",
+    no: "PJ-2026-0005",
+    title: "自动点胶设备项目启动",
+    type: "新项目下单",
+    result: "approved",
+    reason: "审批完成后自动抄送机械、电气、软件负责人",
+    readStatus: "unread",
+    createdAt: "2026-06-29 09:05",
+  },
+  {
+    id: "CC-2026-002",
+    approvalId: "AP-2026-004",
+    no: "ECN-2026-0002",
+    title: "夹具定位销尺寸变更",
+    type: "ECN 变更",
+    result: "overdue",
+    reason: "超过 24 小时未处理，系统自动提醒项目经理",
+    readStatus: "read",
+    createdAt: "2026-06-30 13:30",
+  },
+];
+
+const baseApprovalLogs = [
+  "2026-07-01 09:20 张工 提交 ECN-2026-0001，系统自动流转到研发负责人审批",
+  "2026-07-01 10:05 王经理 提交 PJ-2026-0004，系统自动流转到老板 / 管理层审批",
+  "2026-06-30 16:40 赵工 提交 PC-2026-0001，系统自动流转到项目经理审批",
+];
+
 const approvalFlows = {
   "ECN 变更": ["申请人提交", "研发负责人审批", "项目经理确认影响", "执行负责人处理", "验证负责人确认", "自动归档并抄送"],
   新项目下单: ["申请人提交", "项目经理确认", "研发负责人确认资源", "老板 / 管理层审批", "自动生成项目编号", "自动创建项目节点", "抄送相关负责人"],
@@ -412,6 +447,9 @@ state.controlledProjects = baseControlledProjects.map((project) => ({
     software: project.software,
   }),
 }));
+state.ccRecords = [...baseCcRecords];
+state.approvalLogs = [...baseApprovalLogs];
+loadDemoState();
 
 function setRoute(route) {
   state.route = route;
@@ -435,6 +473,58 @@ function setChangeForm(projectId) {
 
 function getApproval(id) {
   return approvalTasks.find((item) => item.id === id) || approvalTasks[0];
+}
+
+function loadDemoState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (!saved) return;
+    replaceArray(approvalTasks, saved.approvalTasks);
+    replaceArray(ecnRecords, saved.ecnRecords);
+    replaceArray(projectRequests, saved.projectRequests);
+    replaceArray(projectChanges, saved.projectChanges);
+    replaceArray(state.pendingImports, saved.pendingImports);
+    replaceArray(state.controlledProjects, saved.controlledProjects);
+    replaceArray(state.ccRecords, saved.ccRecords);
+    replaceArray(state.approvalLogs, saved.approvalLogs);
+  } catch (error) {
+    console.warn("Demo state restore skipped", error);
+  }
+}
+
+function saveDemoState() {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        approvalTasks,
+        ecnRecords,
+        projectRequests,
+        projectChanges,
+        pendingImports: state.pendingImports,
+        controlledProjects: state.controlledProjects,
+        ccRecords: state.ccRecords,
+        approvalLogs: state.approvalLogs,
+      }),
+    );
+  } catch (error) {
+    console.warn("Demo state save skipped", error);
+  }
+}
+
+function resetDemoState() {
+  localStorage.removeItem(STORAGE_KEY);
+  window.location.reload();
+}
+
+function replaceArray(target, source) {
+  if (!Array.isArray(source)) return;
+  target.splice(0, target.length, ...source);
+}
+
+function addApprovalLog(message) {
+  state.approvalLogs.unshift(`2026-07-01 ${users[state.currentUserIndex].name} ${message}`);
+  saveDemoState();
 }
 
 function getApprovalFlow(task) {
@@ -550,7 +640,7 @@ function renderDashboard() {
           <div class="panel-title">审批任务</div>
           <div class="panel-subtitle">按当前角色过滤：${users[state.currentUserIndex].role}</div>
         </div>
-        <div class="toolbar">${actionButton("刷新待办", "refresh")}${routeButton("发起审批", "ecn-form", "primary-btn")}</div>
+        <div class="toolbar">${actionButton("刷新待办", "refresh")}${actionButton("重置演示数据", "reset-demo", "ghost-btn subtle")}${actionButton("发起审批", "start-approval", "primary-btn")}</div>
       </div>
       ${renderFilters("approval")}
       <div class="table-wrap">
@@ -604,7 +694,7 @@ function renderMine() {
               <tr>
                 <td>${task.no}</td><td>${task.type}</td><td>${task.title}</td><td>${statusBadge(task.status)}</td><td>${task.node}</td>
                 <td>${task.auto[0]}</td>
-                <td class="button-row"><button class="ghost-btn" data-detail="${task.id}">查看</button>${actionButton("撤回", "withdraw")}</td>
+                <td class="button-row"><button class="ghost-btn" data-detail="${task.id}">查看</button>${["pending", "overdue", "returned"].includes(task.status) ? actionButton("撤回", "withdraw", "ghost-btn", `data-id="${task.id}"`) : ""}</td>
               </tr>`).join("")}
           </tbody>
         </table>
@@ -613,7 +703,6 @@ function renderMine() {
 }
 
 function renderCc() {
-  const rows = approvalTasks.filter((task) => ["approved", "overdue"].includes(task.status));
   return `
     <section class="panel">
       <div class="panel-header">
@@ -627,11 +716,11 @@ function renderCc() {
         <table>
           <thead><tr><th>审批编号</th><th>审批标题</th><th>类型</th><th>审批结果</th><th>抄送原因</th><th>阅读状态</th><th>操作</th></tr></thead>
           <tbody>
-            ${rows.map((task, index) => `
+            ${state.ccRecords.map((record) => `
               <tr>
-                <td>${task.no}</td><td>${task.title}</td><td>${task.type}</td><td>${statusBadge(task.status)}</td>
-                <td>流程完成后自动抄送</td><td>${statusBadge(index === 0 ? "unread" : "read")}</td>
-                <td><button class="ghost-btn" data-detail="${task.id}">查看</button></td>
+                <td>${record.no}</td><td>${record.title}</td><td>${record.type}</td><td>${statusBadge(record.result)}</td>
+                <td>${record.reason}</td><td>${statusBadge(record.readStatus)}</td>
+                <td><button class="ghost-btn" data-detail="${record.approvalId}">查看</button></td>
               </tr>`).join("")}
           </tbody>
         </table>
@@ -922,8 +1011,9 @@ function renderApprovalDetail() {
             <div class="panel-subtitle">${task.no} · ${task.type}</div>
           </div>
           <div class="button-row">
-            ${actionButton("通过", "approve", "success-btn")}
-            ${actionButton("驳回", "reject", "danger-btn")}
+            ${["pending", "overdue"].includes(task.status) ? actionButton("通过", "approve", "success-btn", `data-id="${task.id}"`) : ""}
+            ${["pending", "overdue"].includes(task.status) ? actionButton("驳回", "reject", "danger-btn", `data-id="${task.id}"`) : ""}
+            ${["pending", "overdue"].includes(task.status) ? actionButton("退回修改", "return-edit", "ghost-btn", `data-id="${task.id}"`) : ""}
             ${actionButton("转交", "transfer")}
             ${actionButton("加签", "countersign")}
             ${actionButton("评论", "comment")}
@@ -964,6 +1054,12 @@ function renderApprovalDetail() {
           <div>图纸：DRW-2026-041-A.pdf</div>
           <div>BOM：BOM-2026-088.xlsx</div>
           <div>客户邮件：客户变更要求.eml</div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-header"><div class="panel-title">审批日志</div></div>
+        <div class="timeline">
+          ${state.approvalLogs.filter((log) => log.includes(task.no)).slice(0, 8).map((log) => `<div class="log-item"><div class="log-title">${log}</div><div class="log-meta">系统自动记录</div></div>`).join("") || `<div class="log-item"><div class="log-title">${task.startedAt} ${task.applicant} 提交 ${task.no}</div><div class="log-meta">系统自动记录</div></div>`}
         </div>
       </section>
     </div>`;
@@ -1118,6 +1214,8 @@ function importProject(projectId) {
   state.pendingImports = state.pendingImports.filter((project) => project.id !== projectId);
   state.controlledProjects.unshift(newProject);
   state.selectedProjectId = newProject.id;
+  addApprovalLog(`导入项目 ${item.id}，系统自动生成 11 个项目节点`);
+  saveDemoState();
   closeModal();
   openModal("导入成功", `<p>${item.name} 已进入项目进度管控列表，系统已自动生成非标自动化项目标准节点模板。</p><div class="button-row"><button class="primary-btn" data-project-detail="${newProject.id}">立即查看进度</button></div>`);
   render();
@@ -1140,6 +1238,8 @@ function approveItem(approvalId) {
     task.node = flow[nextIndex];
     task.auto = [...task.auto, `${flow[currentIndex]} 已通过，自动流转到 ${flow[nextIndex]}`];
     syncBusinessStatus(task, "pending");
+    addApprovalLog(`审批通过 ${task.no} 的“${flow[currentIndex]}”，流转到“${flow[nextIndex]}”`);
+    saveDemoState();
     closeModal();
     openModal("已流转到下一节点", `<p>${task.no} 已通过“${flow[currentIndex]}”，当前节点变为“${flow[nextIndex]}”。</p>`);
     render();
@@ -1150,6 +1250,17 @@ function approveItem(approvalId) {
   task.node = "流程完成";
   task.auto = [...task.auto, `${flow[currentIndex]} 已通过`, "审批完成自动归档", "自动抄送相关负责人"];
   syncBusinessStatus(task, "approved");
+  state.ccRecords.unshift({
+    id: `CC-2026-${String(state.ccRecords.length + 1).padStart(3, "0")}`,
+    approvalId: task.id,
+    no: task.no,
+    title: task.title,
+    type: task.type,
+    result: "approved",
+    reason: "审批完成后自动抄送相关负责人",
+    readStatus: "unread",
+    createdAt: "2026-07-01 15:30",
+  });
 
   if (task.type === "新项目下单" && !state.pendingImports.some((item) => item.id === task.no)) {
     state.pendingImports.unshift({
@@ -1172,6 +1283,8 @@ function approveItem(approvalId) {
   }
 
   closeModal();
+  addApprovalLog(`审批完成 ${task.no}，系统自动归档并抄送相关负责人`);
+  saveDemoState();
   openModal("审批通过", `<p>${task.no} 已通过。系统已自动流转、归档并执行后续动作。</p>`);
   render();
 }
@@ -1187,8 +1300,44 @@ function rejectItem(approvalId, reason) {
   task.node = "流程终止";
   task.auto = [...task.auto, `驳回原因：${reason}`];
   syncBusinessStatus(task, "rejected");
+  addApprovalLog(`驳回 ${task.no}，原因：${reason}`);
+  saveDemoState();
   closeModal();
   openModal("已驳回", `<p>${task.no} 已驳回，原因已写入审批日志：${reason}</p>`);
+  render();
+}
+
+function returnForEditItem(approvalId, reason) {
+  const task = getApproval(approvalId || state.selectedApprovalId);
+  if (!["pending", "overdue"].includes(task.status)) {
+    closeModal();
+    openModal("流程已结束", `<p>${task.no} 当前状态为 ${statusMap[task.status]}，不能退回修改。</p>`);
+    return;
+  }
+  task.status = "returned";
+  task.node = "申请人修改";
+  task.auto = [...task.auto, `退回修改原因：${reason}`];
+  syncBusinessStatus(task, "returned");
+  addApprovalLog(`退回修改 ${task.no}，原因：${reason}`);
+  saveDemoState();
+  closeModal();
+  openModal("已退回修改", `<p>${task.no} 已退回申请人修改，原因已写入审批日志：${reason}</p>`);
+  render();
+}
+
+function withdrawItem(approvalId) {
+  const task = getApproval(approvalId || state.selectedApprovalId);
+  if (!["pending", "overdue", "returned"].includes(task.status)) {
+    openModal("无法撤回", `<p>${task.no} 当前状态为 ${statusMap[task.status]}，不能撤回。</p>`);
+    return;
+  }
+  task.status = "withdrawn";
+  task.node = "申请人撤回";
+  task.auto = [...task.auto, "申请人主动撤回，流程终止"];
+  syncBusinessStatus(task, "withdrawn");
+  addApprovalLog(`撤回 ${task.no}，流程终止`);
+  saveDemoState();
+  openModal("已撤回", `<p>${task.no} 已撤回，流程终止并保留操作记录。</p>`);
   render();
 }
 
@@ -1304,6 +1453,8 @@ function submitCurrentForm() {
 
   approvalTasks.unshift(task);
   state.selectedApprovalId = task.id;
+  addApprovalLog(`提交 ${task.no}，系统自动匹配流程并流转到“${task.node}”`);
+  saveDemoState();
   openModal("提交成功", `<p>${task.no} 已提交审批，当前节点：${task.node}。</p><div class="button-row"><button class="primary-btn" data-route="dashboard">返回审批工作台</button><button class="ghost-btn" data-detail="${task.id}">查看审批详情</button></div>`);
   render();
 }
@@ -1315,6 +1466,7 @@ function addOperationLog(projectId) {
   project.currentNode = "机械设计";
   project.status = "running";
   project.progress = Math.max(project.progress, 42);
+  saveDemoState();
   closeModal();
   openModal("节点已更新", "<p>普通进度信息已直接保存，并自动写入操作记录。</p>");
   render();
@@ -1396,6 +1548,59 @@ function openRejectModal() {
     `<p>驳回必须填写原因，确认后流程终止并写入审批日志。</p><textarea id="reject-reason" placeholder="请输入驳回原因"></textarea><div id="reject-error" class="form-error"></div>`,
     `<button class="ghost-btn" data-action="close-modal">取消</button><button class="danger-btn" data-action="confirm-reject">确认驳回</button>`,
   );
+}
+
+function openReturnModal(approvalId) {
+  state.pendingActionApprovalId = approvalId || state.selectedApprovalId;
+  openModal(
+    "退回修改",
+    `<p>退回修改后，申请人可以调整业务单据并重新提交。</p><textarea id="return-reason" placeholder="请输入退回修改原因"></textarea><div id="return-error" class="form-error"></div>`,
+    `<button class="ghost-btn" data-action="close-modal">取消</button><button class="primary-btn" data-action="confirm-return">确认退回</button>`,
+  );
+}
+
+function openTransferModal() {
+  const task = getApproval(state.selectedApprovalId);
+  openModal(
+    "转交审批",
+    `<div class="form-grid modal-form">
+      ${field("当前审批", `${task.no} ${task.title}`)}
+      ${selectField("转交给", ["李工", "王经理", "赵工", "周总"])}
+      ${textareaField("转交说明", "当前节点转交同角色人员处理。")}
+    </div>`,
+    `<button class="ghost-btn" data-action="close-modal">取消</button><button class="primary-btn" data-action="confirm-transfer">确认转交</button>`,
+  );
+}
+
+function openCountersignModal() {
+  const task = getApproval(state.selectedApprovalId);
+  openModal(
+    "加签确认",
+    `<div class="form-grid modal-form">
+      ${field("当前审批", `${task.no} ${task.title}`)}
+      ${selectField("加签人员", ["机械负责人 王工", "电气负责人 李工", "软件负责人 陈工", "项目经理 王经理"])}
+      ${textareaField("加签原因", "需要相关负责人补充确认影响范围。")}
+    </div>`,
+    `<button class="ghost-btn" data-action="close-modal">取消</button><button class="primary-btn" data-action="confirm-countersign">确认加签</button>`,
+  );
+}
+
+function openCommentModal() {
+  const task = getApproval(state.selectedApprovalId);
+  openModal(
+    "审批评论",
+    `<p>${task.no} ${task.title}</p><textarea id="approval-comment" placeholder="请输入评论">请补充最新图纸版本后继续审批。</textarea>`,
+    `<button class="ghost-btn" data-action="close-modal">取消</button><button class="primary-btn" data-action="confirm-comment">保存评论</button>`,
+  );
+}
+
+function markAllCcRead() {
+  state.ccRecords.forEach((record) => {
+    record.readStatus = "read";
+  });
+  saveDemoState();
+  openModal("已读完成", "<p>抄送记录已全部标记为已读。</p>");
+  render();
 }
 
 function openApproveModal(approvalId) {
@@ -1546,6 +1751,54 @@ document.addEventListener("click", (event) => {
     }
     return rejectItem(state.pendingActionApprovalId, value);
   }
+  if (action === "return-edit") {
+    state.pendingActionApprovalId = actionTarget.dataset.id || state.selectedApprovalId;
+    return openReturnModal(state.pendingActionApprovalId);
+  }
+  if (action === "confirm-return") {
+    const value = document.querySelector("#return-reason")?.value.trim();
+    if (!value) {
+      document.querySelector("#return-error").textContent = "请先填写退回修改原因。";
+      return;
+    }
+    return returnForEditItem(state.pendingActionApprovalId, value);
+  }
+  if (action === "withdraw") return withdrawItem(actionTarget.dataset.id || state.selectedApprovalId);
+  if (action === "transfer") return openTransferModal();
+  if (action === "confirm-transfer") {
+    const task = getApproval(state.selectedApprovalId);
+    task.auto = [...task.auto, "当前节点已转交，并保留转交日志"];
+    addApprovalLog(`转交 ${task.no} 当前节点`);
+    saveDemoState();
+    closeModal();
+    openModal("已转交", `<p>${task.no} 当前节点已转交，操作已写入审批日志。</p>`);
+    render();
+    return;
+  }
+  if (action === "countersign") return openCountersignModal();
+  if (action === "confirm-countersign") {
+    const task = getApproval(state.selectedApprovalId);
+    task.auto = [...task.auto, "已增加临时加签确认人"];
+    addApprovalLog(`加签 ${task.no}，等待相关负责人补充确认`);
+    saveDemoState();
+    closeModal();
+    openModal("已加签", `<p>${task.no} 已增加临时加签确认人。</p>`);
+    render();
+    return;
+  }
+  if (action === "comment") return openCommentModal();
+  if (action === "confirm-comment") {
+    const task = getApproval(state.selectedApprovalId);
+    const value = document.querySelector("#approval-comment")?.value.trim() || "补充审批评论";
+    addApprovalLog(`评论 ${task.no}：${value}`);
+    saveDemoState();
+    closeModal();
+    openModal("评论已保存", `<p>评论已写入 ${task.no} 的审批日志。</p>`);
+    render();
+    return;
+  }
+  if (action === "read-all") return markAllCcRead();
+  if (action === "reset-demo") return resetDemoState();
   if (action === "submit") return submitCurrentForm();
 
   const projectId = actionTarget.dataset.project || state.selectedProjectId;
@@ -1557,13 +1810,9 @@ document.addEventListener("click", (event) => {
   }
 
   const modalCopy = {
-    transfer: ["转交审批", "可将当前节点转交给同角色人员处理，并保留转交日志。"],
-    countersign: ["加签", "可临时增加相关负责人确认，第一阶段作为演示按钮。"],
-    comment: ["评论", "评论将进入审批日志，便于后续追溯。"],
     "save-draft": ["保存草稿", "当前表单内容已保存为草稿。"],
     "show-auto": ["自动审批能力", "自动编号、自动流转、自动抄送、自动提醒、自动归档、自动创建项目节点、自动生成变更记录。"],
     "show-change-records": ["项目变更记录", "关键资料变更审批通过后，项目版本号自动递增并保留历史版本。"],
-    "read-all": ["已读完成", "抄送记录已全部标记为已读。"],
     refresh: ["刷新完成", "待办列表已按当前身份刷新。"],
     search: ["查询", "筛选条件已应用。"],
     reset: ["重置", "筛选条件已清空。"],
